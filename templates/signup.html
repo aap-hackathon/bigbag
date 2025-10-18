@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BigBag — Rejestracja mieszkańca</title>
+    <link rel="stylesheet" href="/static/css/base.css" />
+    <link rel="stylesheet" href="/static/css/auth.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="/">PłockiBigBag.pl</a>
+      </div>
+    </header>
+
+  <main class="auth-viewport">
+      <div class="auth-container">
+        <div class="auth-card">
+          <h1>Rejestracja — Mieszkaniec</h1>
+          <p>Wypełnij poniższy formularz, aby utworzyć konto. Wszystkie pola są wymagane poza NIP.</p>
+          <form id="signupForm" class="apply-form">
+          <label for="pesel">PESEL (11 cyfr)</label>
+          <input id="pesel" name="pesel" type="text" pattern="[0-9]{11}" maxlength="11" placeholder="12345678901" required />
+
+          <label for="firstName">Imię</label>
+          <input id="firstName" name="first_name" type="text" minlength="2" maxlength="128" required />
+
+          <label for="lastName">Nazwisko</label>
+          <input id="lastName" name="last_name" type="text" minlength="2" maxlength="128" required />
+
+          <label for="phoneNumber">Numer telefonu</label>
+          <input id="phoneNumber" name="phone_number" type="tel" pattern="[0-9+\-\s]{9,}" maxlength="12" placeholder="123456789 lub +48123456789" required />
+
+          <label for="email">E-mail</label>
+          <input id="email" name="email" type="email" required />
+
+          <label for="birthDate">Data urodzenia</label>
+          <input id="birthDate" name="birth_date" type="date" required />
+
+          <label for="regAddress">Adres zamieszkania</label>
+          <input id="regAddress" name="reg_address" type="text" minlength="5" maxlength="256" placeholder="np. ul. Główna 123, 09-400 Płock" required />
+
+          <label for="nip">NIP (10 cyfr, opcjonalnie)</label>
+          <input id="nip" name="nip" type="number" pattern="[0-9]{10}" maxlength="10" placeholder="1234567890" />
+
+          <label class="checkbox-inline" for="isResident">
+            <input id="isResident" name="isResident" type="checkbox" />
+            <span class="checkbox-text">Potwierdzam, że jestem mieszkańcem Płocka (uprawnionym do rejestracji)</span>
+          </label>
+
+            <div class="auth-actions">
+              <button type="submit" class="btn btn-primary">Utwórz konto</button>
+              <a class="btn btn-secondary" href="/templates/index.html">Anuluj</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </main>
+
+    <script src="/static/js/validation.js"></script>
+  </body>
+</html>

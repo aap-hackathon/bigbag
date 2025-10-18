@@ -1,7 +1,7 @@
 :root{
   --bg:#faf7f4;
   --card:#ffffff;
-  --accent:#ff7a18; /* warm orange */
+  --accent:#ff7a18;
   --accent-2:#ff973c;
   --muted:#6b7280;
   --radius:12px;
@@ -25,7 +25,6 @@
 .main{padding:4.5rem 1rem}
 .main h1{font-size:2rem; margin:0 0 0.5rem}
 
-/* Modal */
 .modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(2,6,23,0.45); padding:1rem}
 .modal[aria-hidden="false"]{display:flex}
 .modal-dialog{background:var(--card); border-radius:var(--radius); padding:1.25rem; width:100%; max-width:520px; box-shadow:0 20px 40px rgba(2,6,23,0.12); position:relative}
@@ -35,12 +34,6 @@
 .login-form input, .login-form select{padding:0.75rem; border-radius:10px; border:1px solid #eef0f2}
 .form-actions{display:flex; gap:0.5rem; margin-top:0.5rem}
 
-@media (max-width:640px){
-  .nav{display:none}
-  .brand{font-size:1rem}
-}
-
-/* Hero */
 .hero{position:relative; padding:3.5rem 0; overflow:hidden}
 .hero-overlay{position:absolute; inset:0; background:linear-gradient(90deg, rgba(255,122,24,0.06), rgba(255,151,60,0.04)); pointer-events:none}
 .hero-inner{display:flex; align-items:center; gap:2rem}
@@ -50,7 +43,6 @@
 .hero-actions{display:flex; gap:0.5rem}
 .hero-image{flex:1; height:320px; border-radius:16px; background-image:url('https://images.unsplash.com/photo-1509395176047-4a66953fd231?w=1200&q=60&auto=format&fit=crop'); background-size:cover; background-position:center; box-shadow:0 20px 40px rgba(2,6,23,0.08)}
 
-/* Feature cards */
 .features h2{margin-top:0}
 .cards{display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-top:1rem}
 .card{background:var(--card); border-radius:14px; overflow:hidden; box-shadow:0 12px 30px rgba(2,6,23,0.06); transition:transform .18s ease; display:flex; flex-direction:column}
@@ -61,9 +53,14 @@
 
 .info h2{margin-top:0}
 
-/* Buttons */
 .btn-cta{background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:#fff; padding:0.75rem 1.1rem; border-radius:10px; font-weight:700; box-shadow:0 10px 26px rgba(255,122,24,0.12); display:inline-flex; align-items:center; justify-content:center}
 .btn-outline{background:transparent; border:1px solid #eef0f2; padding:0.5rem 0.9rem}
+
+/* Media queries moved to bottom by clean_css.py */
+@media (max-width:640px){
+  .nav{display:none}
+  .brand{font-size:1rem}
+}
 
 @media (max-width:900px){
   .cards{grid-template-columns:repeat(2,1fr)}
@@ -75,4 +72,3 @@
   .cards{grid-template-columns:1fr}
   .hero-text h1{font-size:1.5rem}
 }
-

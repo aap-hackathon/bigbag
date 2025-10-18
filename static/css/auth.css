@@ -1,27 +1,183 @@
-/* Auth pages (login, signup) */
-.auth-viewport{min-height:calc(100vh - var(--header-h)); display:grid; place-items:center; padding:3rem 1.25rem; width:100%}
-.auth-container{width:min(80vw, 960px); margin:0 auto}
-.auth-card{background:var(--card); padding:2rem; border-radius:8px; box-shadow:0 10px 30px rgba(2,6,23,0.06), inset 6px 0 0 0 var(--accent); display:flex; flex-direction:column; justify-content:flex-start; gap:0.75rem; width:100%; margin:0 auto}
-.auth-card h1{margin-top:0; font-size:1.5rem; color:#0b1720}
-.auth-card p{color:var(--muted); margin-bottom:1rem}
-.alt-links{margin-top:0.75rem; font-size:0.95rem}
-.auth-actions{display:flex; flex-direction:row; gap:0.5rem; align-items:center}
-.auth-actions .btn{min-width:140px; text-align:center}
-.auth-actions .btn-secondary{background:#fff; border:1px solid rgba(15,23,42,0.06); color:var(--accent); box-shadow:none}
-.auth-actions + .alt-links{margin-top:1rem}
-.alt-links{display:flex; flex-direction:column; gap:0.5rem; align-items:flex-start; margin-top:1rem}
-.alt-links a{color:var(--accent); text-decoration:none; font-weight:600}
-.alt-links a:hover{color:var(--accent-2)}
+.auth-viewport {
+  min-height: calc(100vh - var(--header-h));
+  display: grid;
+  place-items: center;
+  padding: 3rem 1.25rem;
+  width: 100%;
+}
 
-/* Remove default underline for all links site-wide for a cleaner look */
-a{color:inherit; text-decoration:none}
+.auth-container {
+  width: min(80vw, 960px);
+  margin: 0 auto;
+}
 
-@media (max-width:900px){
-  .auth-container{padding:0 1rem; width:100%; max-width:720px}
-  .auth-card{padding:1.25rem}
-  .auth-actions{flex-direction:column; align-items:center}
-  .auth-actions .btn{width:100%}
-  .auth-actions .btn + .btn{margin-top:0.5rem}
-  .auth-card h1, .auth-card p{ text-align:center }
-  .alt-links{align-items:center; text-align:center}
+.auth-card {
+  background: var(--card);
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.06), inset 6px 0 0 0 var(--accent);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.auth-card h1 {
+  margin-top: 0;
+  font-size: 1.5rem;
+  color: #0b1720;
+}
+
+.auth-card p {
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+.apply-form .checkbox-inline input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0 0.75rem 0 0;
+  vertical-align: middle;
+}
+
+.alt-links {
+  margin-top: 0.75rem;
+  font-size: 0.95rem;
+}
+
+.auth-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.auth-actions .btn {
+  min-width: 140px;
+  text-align: center;
+}
+
+.auth-actions .btn-secondary {
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  color: var(--accent);
+  box-shadow: none;
+}
+
+.auth-actions + .alt-links {
+  margin-top: 1rem;
+}
+
+.alt-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin-top: 1rem;
+}
+
+.alt-links a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.alt-links a:hover {
+  color: var(--accent-2);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.apply-form {
+  text-align: left;
+}
+
+.apply-form .checkbox-inline {
+  display: block;
+  width: 100%;
+  margin: 0.5rem 0;
+  cursor: pointer;
+}
+
+.apply-form .checkbox-inline input[type="checkbox"] {
+  vertical-align: middle;
+  margin-right: 0.75rem;
+  flex: 0 0 auto;
+}
+
+.apply-form .checkbox-inline .checkbox-text {
+  display: inline-block;
+  vertical-align: middle;
+  max-width: calc(100% - 48px);
+  word-break: break-word;
+}
+
+.apply-form .field-error {
+  color: #b91c1c;
+  font-size: 0.875rem;
+  margin-top: -0.35rem;
+}
+
+.apply-form .form-success {
+  color: var(--accent);
+  font-weight: 600;
+  margin-top: 0.75rem;
+}
+
+/* Media queries moved to bottom by clean_css.py */
+@media (max-width: 900px) {
+  .auth-container {
+    padding: 0 1rem;
+    width: 100%;
+    max-width: 720px;
+  }
+
+  .auth-card {
+    padding: 1.25rem;
+  }
+
+  .auth-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .auth-actions .btn {
+    width: 100%;
+  }
+
+  .auth-actions .btn + .btn {
+    margin-top: 0.5rem;
+  }
+
+  .auth-card h1,
+  .auth-card p {
+    text-align: center;
+  }
+
+  .alt-links {
+    align-items: center;
+    text-align: center;
+  }
+}
+
+@media (max-width: 420px) {
+  .apply-form .checkbox-inline {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+
+  .apply-form .checkbox-inline input[type="checkbox"] {
+    margin-right: 0;
+  }
+
+  .apply-form .checkbox-inline .checkbox-text {
+    max-width: 100%;
+  }
 }
