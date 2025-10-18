@@ -23,25 +23,25 @@ def index() -> str:
     return flask.render_template("index.html")
 
 
-@app.route("/logowanie")
+@app.route("/logowanie", methods=["GET", "POST"])
 def login() -> str:
     """Renders the login page."""
     return flask.render_template("login.html")
 
 
-@app.route("/logowanie/urzednik")
+@app.route("/logowanie/urzednik", methods=["GET", "POST"])
 def login_staff() -> str:
     """Renders the official login page."""
     return flask.render_template("login_staff.html")
 
 
-@app.route("/rejestracja")
+@app.route("/rejestracja", methods=["GET", "POST"])
 def signup() -> str:
     """Renders the signup page."""
     return flask.render_template("signup.html")
 
 
-@app.route("/wniosek")
+@app.route("/wniosek", methods=["GET", "POST"])
 def application_form() -> str:
     """Renders the wniosek page."""
     return flask.render_template("application_form.html")
