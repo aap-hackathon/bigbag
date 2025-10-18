@@ -18,12 +18,27 @@
       <div class="container">
         <a class="brand" href="/">PłockiBigBag.pl</a>
         <div class="actions">
+          {% if current_user.is_authenticated %} {% if current_user.type ==
+          "citizen" %}
+          <a class="btn btn-primary" href="{{ url_for('resident_dashboard') }}"
+            >Panel mieszkańca</a
+          >
+          {% elif current_user.type == "employee" %}
+          <a class="btn btn-primary" href="{{ url_for('staff_dashboard') }}"
+            >Panel urzędnika</a
+          >
+          {% endif %}
+          <a class="btn btn-secondary" href="{{ url_for('logout') }}"
+            >Wyloguj się</a
+          >
+          {% else %}
           <a class="btn btn-primary" href="{{ url_for('login') }}"
             >Zaloguj się</a
           >
           <a class="btn btn-secondary" href="{{ url_for('signup') }}"
             >Zarejestruj się</a
           >
+          {% endif %}
         </div>
       </div>
     </header>
@@ -72,11 +87,21 @@
         <h3>Jak złożyć wniosek</h3>
         <ol>
           <li>
-            <a href="{{ url_for('login') }}" style="text-decoration: underline; color: #ff7a18;">Zaloguj się</a> do panelu użytkownika. 
-            Jeśli nie masz konta, najpierw je utwórz.
+            <a
+              href="{{ url_for('login') }}"
+              style="text-decoration: underline; color: #ff7a18"
+              >Zaloguj się</a
+            >
+            do panelu użytkownika. Jeśli nie masz konta, najpierw je utwórz.
           </li>
-          <li>Wypełnij formularz elektroniczny, uzupełniając wszystkie wymagane pola.</li>
-          <li>Po wysłaniu wniosku otrzymasz decyzję o jego rozpatrzeniu oraz informację o terminie podstawienia big-baga.</li>
+          <li>
+            Wypełnij formularz elektroniczny, uzupełniając wszystkie wymagane
+            pola.
+          </li>
+          <li>
+            Po wysłaniu wniosku otrzymasz decyzję o jego rozpatrzeniu oraz
+            informację o terminie podstawienia big-baga.
+          </li>
         </ol>
       </section>
 

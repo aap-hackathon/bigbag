@@ -52,6 +52,10 @@
       </div>
     </main>
 
-    <!-- Staff login handled by backend; no client-side auth JS included -->
+    {% if error %}
+    <script>
+      alert("Błąd logowania: {{ error }}");
+    </script>
+    {% endif %}
   </body>
 </html>

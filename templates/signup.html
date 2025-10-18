@@ -98,6 +98,16 @@
               placeholder="1234567890"
             />
 
+            <label for="password">Hasło</label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              minlength="8"
+              maxlength="128"
+              required
+            />
+
             <label class="checkbox-inline" for="isResident">
               <input id="isResident" name="isResident" type="checkbox" />
               <span class="checkbox-text"
@@ -120,5 +130,10 @@
     </main>
 
     <script src="{{ url_for('static', filename='js/register_validation.js') }}"></script>
+    {% if error %}
+    <script>
+      alert("Błąd rejestracji: {{ error }}");
+    </script>
+    {% endif %}
   </body>
 </html>
