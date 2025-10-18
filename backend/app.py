@@ -218,7 +218,15 @@ def signup() -> str:
 @flask_login.login_required
 def application_form() -> str:
     """Renders the wniosek page."""
-    return flask.render_template("application_form.html")
+    cursor = db_connection.cursor(dictionary=True)
+    cursor.execute(
+        "SELECT * FROM estate WHERE id_citizen = %s",
+        (flask_login.current_user.id,),
+    )
+    estates = cursor.fetchall()
+    cursor.close()
+    print(estates)
+    return flask.render_template("application_form.html", estates=estates)
 
 
 @app.route("/panel/mieszkaniec")

@@ -28,13 +28,23 @@
             Wypełnij formularz, aby złożyć wniosek o odbiór worków.
           </p>
 
-          <form id="applicationForm" class="apply-form" novalidate method="post"">
+          <form
+            id="applicationForm"
+            class="apply-form"
+            novalidate
+            method="post"
+          >
             <label class="label" for="id_estate">Nieruchomość</label>
             <div class="field">
               <select name="id_estate" id="id_estate" required>
                 <option value="">-- wybierz nieruchomość --</option>
-                <option value="1">ul. Główna 1 / A</option>
-                <option value="2">ul. Słoneczna 5 / B</option>
+                {% for estate in estates %}
+                <option value="{{ estate.id_estate }}">
+                  ul. {{ estate.street }} {{ estate.building_number }}{% if
+                  estate.apartment_number %}/{{ estate.apartment_number }}{%
+                  endif %}
+                </option>
+                {% endfor %}
                 <option value="new">+ Dodaj nową nieruchomość</option>
               </select>
               <div class="field-error"></div>
@@ -48,27 +58,27 @@
               <div class="field">
                 <select name="new_est_osiedle" id="new_est_osiedle">
                   <option value="">-- wybierz osiedle --</option>
-                  <option value="Borowiczki">Borowiczki</option>
-                  <option value="Ciechomice">Ciechomice</option>
-                  <option value="Dworcowa">Dworcowa</option>
-                  <option value="Góry">Góry</option>
-                  <option value="Imielnica">Imielnica</option>
-                  <option value="Kochanowskiego">Kochanowskiego</option>
-                  <option value="Kolegialna">Kolegialna</option>
-                  <option value="Łukasiewicza">Łukasiewicza</option>
-                  <option value="Międzytorze">Międzytorze</option>
-                  <option value="Miodowa">Miodowa</option>
-                  <option value="Podolszyce Pn.">Podolszyce Pn.</option>
-                  <option value="Podolszyce Pd.">Podolszyce Pd.</option>
-                  <option value="Pradolina Wisły">Pradolina Wisły</option>
-                  <option value="Radziwie">Radziwie</option>
-                  <option value="Skarpa">Skarpa</option>
-                  <option value="Stare Miasto">Stare Miasto</option>
-                  <option value="Trzepowo">Trzepowo</option>
-                  <option value="Tysiąclecia">Tysiąclecia</option>
-                  <option value="Winiary">Winiary</option>
-                  <option value="Wyszogrodzka">Wyszogrodzka</option>
-                  <option value="Zielony Jar">Zielony Jar</option>
+                  <option value="1">Borowiczki</option>
+                  <option value="2">Ciechomice</option>
+                  <option value="3">Dworcowa</option>
+                  <option value="2">Góry</option>
+                  <option value="1">Imielnica</option>
+                  <option value="3">Kochanowskiego</option>
+                  <option value="2">Kolegialna</option>
+                  <option value="3">Łukasiewicza</option>
+                  <option value="2">Międzytorze</option>
+                  <option value="4">Miodowa</option>
+                  <option value="1">Podolszyce Pn.</option>
+                  <option value="1">Podolszyce Pd.</option>
+                  <option value="2">Pradolina Wisły</option>
+                  <option value="2">Radziwie</option>
+                  <option value="4">Skarpa</option>
+                  <option value="4">Stare Miasto</option>
+                  <option value="3">Trzepowo</option>
+                  <option value="3">Tysiąclecia</option>
+                  <option value="4">Winiary</option>
+                  <option value="2">Wyszogrodzka</option>
+                  <option value="1">Zielony Jar</option>
                 </select>
                 <div class="field-error"></div>
               </div>
@@ -129,29 +139,6 @@
                 />
                 <div class="field-error"></div>
               </div>
-
-              <label class="label" for="new_est_attachment"
-                >Zaświadczenie o opłacie za segregację (pdf / jpg / jpeg / png,
-                max 10 MB) — wymagane dla mieszkań (bloki)</label
-              >
-              <div
-                class="field"
-                id="new_est_attachment_field"
-                style="display: none"
-              >
-                <input
-                  type="file"
-                  name="new_est_attachment"
-                  id="new_est_attachment"
-                  accept=".pdf,image/jpeg,image/jpg,image/png"
-                />
-                <span
-                  class="file-name"
-                  id="new_est_attachment_name"
-                  aria-live="polite"
-                ></span>
-                <div class="field-error"></div>
-              </div>
             </div>
 
             <label class="label" for="bag_arrival_date"
@@ -185,6 +172,34 @@
               ></textarea>
               <div class="field-error"></div>
             </div>
+
+            <div id="file-attachment-container">
+              <label class="label" for="new_est_attachment"
+                >Zaświadczenie o opłacie za segregację (pdf / jpg / jpeg / png,
+                max 10 MB) — wymagane dla mieszkań (bloki)</label
+              >
+              <div class="field" id="new_est_attachment_field">
+                <input
+                  type="file"
+                  name="new_est_attachment"
+                  id="new_est_attachment"
+                  accept=".pdf,image/jpeg,image/jpg,image/png"
+                />
+                <span
+                  class="file-name"
+                  id="new_est_attachment_name"
+                  aria-live="polite"
+                ></span>
+                <div class="field-error"></div>
+              </div>
+            </div>
+
+            <!-- expose estates data as JSON so client JS can determine building types -->
+            <div
+              id="hidden_building_type"
+              data-estates='{{ estates | tojson }}'
+              hidden
+            ></div>
 
             <div class="auth-actions">
               <button type="submit" class="btn btn-primary">
