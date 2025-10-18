@@ -4,35 +4,47 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>BigBag — Logowanie</title>
-    <link rel="stylesheet" href="/static/css/base.css" />
-    <link rel="stylesheet" href="/static/css/auth.css" />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/base.css') }}"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/auth.css') }}"
+    />
   </head>
   <body>
     <header class="site-header">
       <div class="container">
-        <a class="brand" href="/">PłockiBigBag.pl</a>
+        <a class="brand" href="{{ url_for('index') }}">PłockiBigBag.pl</a>
       </div>
     </header>
 
-  <main class="auth-viewport">
+    <main class="auth-viewport">
       <div class="auth-container">
         <div class="auth-card">
           <h1>Logowanie</h1>
           <form id="loginForm" class="login-form">
-          <label for="email">E-mail</label>
-          <input id="email" name="email" type="email" required />
+            <label for="email">E-mail</label>
+            <input id="email" name="email" type="email" required />
 
-          <label for="password">Hasło</label>
-          <input id="password" name="password" type="password" required />
+            <label for="password">Hasło</label>
+            <input id="password" name="password" type="password" required />
 
             <div class="auth-actions">
               <button type="submit" class="btn btn-primary">Zaloguj się</button>
-              <a class="btn btn-secondary" href="/templates/index.html">Anuluj</a>
+              <a class="btn btn-secondary" href="{{ url_for('index') }}"
+                >Anuluj</a
+              >
             </div>
 
             <div class="alt-links">
-              <a href="/templates/login_staff.html">Zaloguj jako pracownik (urzędnik)</a>
-              <a href="/templates/signup.html">Nie masz konta? Zarejestruj się</a>
+              <a href="{{ url_for('login_staff') }}"
+                >Zaloguj jako pracownik (urzędnik)</a
+              >
+              <a href="{{ url_for('signup') }}"
+                >Nie masz konta? Zarejestruj się</a
+              >
             </div>
           </form>
         </div>
