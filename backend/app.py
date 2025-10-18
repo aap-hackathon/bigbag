@@ -340,7 +340,48 @@ def resident_dashboard() -> str:
     print(flask_login.current_user)
     if flask_login.current_user.type != "citizen":
         return flask.redirect(flask.url_for("index"))
-    return flask.render_template("resident_dashboard.html")
+    # pagination
+    try:
+        page = int(flask.request.args.get("page", "1"))
+    except ValueError:
+        page = 1
+    per_page = 25
+    offset = (page - 1) * per_page
+
+    cur = db_connection.cursor(dictionary=True)
+    try:
+        # total count
+        cur.execute(
+            "SELECT COUNT(*) as cnt FROM application WHERE id_citizen = %s",
+            (flask_login.current_user.id,),
+        )
+        row = cur.fetchone()
+        total = row["cnt"] if row and "cnt" in row else 0
+
+        # paginated fetch
+        cur.execute(
+            """
+            SELECT a.*, e.street, e.building_number, e.apartment_number
+            FROM application a
+            LEFT JOIN estate e ON a.id_estate = e.id_estate
+            WHERE a.id_citizen = %s
+            ORDER BY a.creation_date DESC
+            LIMIT %s OFFSET %s
+            """,
+            (flask_login.current_user.id, per_page, offset),
+        )
+        applications = cur.fetchall()
+    finally:
+        cur.close()
+
+    total_pages = max(1, (total + per_page - 1) // per_page)
+
+    return flask.render_template(
+        "resident_dashboard.html",
+        applications=applications,
+        page=page,
+        total_pages=total_pages,
+    )
 
 
 @app.route("/panel/urzednik")

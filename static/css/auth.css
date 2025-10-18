@@ -217,3 +217,31 @@ a {
     max-width: 100%;
   }
 }
+
+/* Dashboard / table improvements */
+.table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 0.75rem; min-width: 640px; }
+.table th, .table td { padding: 0.6rem 0.75rem; text-align: left; border-bottom: 1px solid rgba(15,23,42,0.06); }
+.table thead { display: table-header-group; }
+.table thead th { font-weight: 700; font-size: 0.95rem; color: #0b1720; background: var(--card); box-shadow: 0 4px 8px rgba(11,23,36,0.04); }
+.table tbody tr:hover { background: rgba(11,23,36,0.02); }
+
+.status-badge { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 999px; font-weight: 700; font-size: 0.85rem; }
+.status-awaiting { background: #fff4e6; color: #7a4a00; }
+.status-in_progress { background: #e6f6ff; color: #0b5ea8; }
+.status-approved { background: #ecfdf5; color: #05603a; }
+.status-declined { background: #fff1f2; color: #9f1239; }
+
+.action-link { color: var(--accent); font-weight: 600; }
+.action-link:hover { text-decoration: underline; }
+
+/* Make dashboard card slightly roomier for table */
+.auth-card .table { margin-top: 1rem; }
+
+@media (max-width: 720px) {
+  .table th:nth-child(4), .table td:nth-child(4) { display: none; } /* hide bag_count on small */
+}
+
+.pagination { display:flex; gap:0.5rem; align-items:center; justify-content:center; }
+.pagination .btn { padding: 0.45rem 0.7rem; border-radius:6px; }
+.btn-secondary { background: #f3f4f6; color: #0b1720; }
