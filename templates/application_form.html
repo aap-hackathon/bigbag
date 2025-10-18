@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Wyślij wniosek — BigBag</title>
+    <link rel="stylesheet" href="/static/css/base.css" />
+    <link rel="stylesheet" href="/static/css/auth.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="/">PłockiBigBag.pl</a>
+      </div>
+    </header>
+
+    <main class="auth-viewport">
+      <div class="auth-container">
+        <div class="auth-card">
+          <h1>Nowy wniosek</h1>
+          <p class="lead">Wypełnij formularz, aby złożyć wniosek o odbiór worków.</p>
+
+          <form id="applicationForm" class="apply-form" novalidate>
+
+            <!-- Assuming id_estate and id_citizen will be provided by server side; here we show selects for UX -->
+            <label class="label" for="id_estate">Nieruchomość</label>
+            <div class="field">
+              <select name="id_estate" id="id_estate" required>
+                <option value="">-- wybierz nieruchomość --</option>
+                <option value="1">ul. Główna 1 / A</option>
+                <option value="2">ul. Słoneczna 5 / B</option>
+                <option value="new">+ Dodaj nową nieruchomość</option>
+              </select>
+              <div class="field-error"></div>
+            </div>
+
+            <!-- New estate inputs (hidden unless "new" is selected) -->
+            <div id="new_estate_fields" style="display:none; margin-top:0.75rem;">
+              <label class="label" for="new_est_osiedle">Osiedle</label>
+              <div class="field">
+                <select name="new_est_osiedle" id="new_est_osiedle">
+                  <option value="">-- wybierz osiedle --</option>
+                  <option value="Winiary">Winiary</option>
+                  <option value="Skarpa">Skarpa</option>
+                  <option value="Miodowa">Miodowa</option>
+                  <option value="Stare Miasto">Stare Miasto</option>
+                  <option value="Tysiąclecia">Tysiąclecia</option>
+                  <option value="Kochanowskiego">Kochanowskiego</option>
+                  <option value="Dworcowa">Dworcowa</option>
+                  <option value="Trzepowo">Trzepowo</option>
+                  <option value="Łukasiewicza">Łukasiewicza</option>
+                  <option value="Kolegialna">Kolegialna</option>
+                  <option value="Wyszogrodzka">Wyszogrodzka</option>
+                  <option value="Międzytorze">Międzytorze</option>
+                  <option value="Podolszyce Pn.">Podolszyce Pn.</option>
+                  <option value="Podolszyce Pd.">Podolszyce Pd.</option>
+                  <option value="Zielony Jar">Zielony Jar</option>
+                  <option value="Borowiczki">Borowiczki</option>
+                  <option value="Imielnica">Imielnica</option>
+                  <option value="Radziwie">Radziwie</option>
+                  <option value="Góry">Góry</option>
+                  <option value="Ciechomice">Ciechomice</option>
+                  <option value="Pradolina Wisły">Pradolina Wisły</option>
+                </select>
+                <div class="field-error"></div>
+              </div>
+
+              <label class="label" for="new_est_type">Typ nieruchomości</label>
+              <div class="field">
+                <select name="new_est_type" id="new_est_type">
+                  <option value="">-- wybierz typ --</option>
+                  <option value="mieszkanie">Mieszkanie</option>
+                  <option value="dom">Dom jednorodzinny</option>
+                </select>
+                <div class="field-error"></div>
+              </div>
+
+              <label class="label" for="new_est_postal">Kod pocztowy</label>
+              <div class="field">
+                <input type="text" name="new_est_postal" id="new_est_postal" placeholder="09-400" pattern="[0-9]{2}-[0-9]{3}" />
+                <div class="field-error"></div>
+              </div>
+
+              <label class="label" for="new_est_street">Ulica</label>
+              <div class="field">
+                <input type="text" name="new_est_street" id="new_est_street" placeholder="ul. Wiślana" />
+                <div class="field-error"></div>
+              </div>
+
+              <label class="label" for="new_est_building">Numer budynku</label>
+              <div class="field">
+                <input type="text" name="new_est_building" id="new_est_building" placeholder="12" />
+                <div class="field-error"></div>
+              </div>
+
+              <label class="label" for="new_est_apartment">Numer mieszkania (opcjonalnie)</label>
+              <div class="field">
+                <input type="text" name="new_est_apartment" id="new_est_apartment" placeholder="3A" />
+                <div class="field-error"></div>
+              </div>
+
+              <label class="label" for="new_est_attachment">Zaświadczenie o opłacie za segregację (pdf / jpg / jpeg / png, max 10 MB) — wymagane dla mieszkań (bloki)</label>
+              <div class="field" id="new_est_attachment_field" style="display:none;">
+                <input type="file" name="new_est_attachment" id="new_est_attachment" accept=".pdf,image/jpeg,image/jpg,image/png" />
+                <span class="file-name" id="new_est_attachment_name" aria-live="polite"></span>
+                <div class="field-error"></div>
+              </div>
+            </div>
+
+            <!-- Mieszkaniec będzie dostarczony po autoryzacji (backend) -->
+
+            <!-- Liczba worków usunięta zgodnie z prośbą -->
+
+            <label class="label" for="bag_arrival_date">Data dostarczenia (opcjonalnie)</label>
+            <div class="field">
+              <input type="date" name="bag_arrival_date" id="bag_arrival_date" />
+              <div class="field-error"></div>
+            </div>
+
+            <label class="label" for="bag_depart_date">Data odbioru (opcjonalnie)</label>
+            <div class="field">
+              <input type="date" name="bag_depart_date" id="bag_depart_date" />
+              <div class="field-error"></div>
+            </div>
+
+            <label class="label" for="notes">Uwagi (opcjonalnie)</label>
+            <div class="field">
+              <textarea name="notes" id="notes" maxlength="256" rows="4" placeholder="Dodatkowe informacje (max 256 znaków)"></textarea>
+              <div class="field-error"></div>
+            </div>
+
+            <div class="auth-actions">
+              <button type="submit" class="btn btn-primary">Wyślij wniosek</button>
+              <a class="btn btn-secondary" href="/templates/resident_dashboard.html">Anuluj</a>
+            </div>
+
+          </form>
+        </div>
+      </div>
+    </main>
+
+    <script src="/static/js/application_validation.js"></script>
+  </body>
+</html>

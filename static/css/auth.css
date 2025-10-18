@@ -129,6 +129,42 @@ a {
   margin-top: 0.75rem;
 }
 
+/* Styled file input: hide native input and show a nice button + filename */
+.file-input-wrap {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.file-input-wrap input[type="file"] {
+  position: relative;
+  z-index: 2;
+  opacity: 0; /* hide native control */
+  width: 120px;
+  height: 38px;
+  cursor: pointer;
+}
+.btn-file {
+  display: inline-block;
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 100%);
+  color: #fff;
+  padding: 0.5rem 0.9rem;
+  border-radius: 6px;
+  font-weight: 600;
+  box-shadow: 0 6px 14px rgba(11, 23, 36, 0.12);
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+  user-select: none;
+}
+.btn-file:hover{ transform: translateY(-1px); }
+.file-name{
+  font-size: 0.95rem;
+  color: var(--muted);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Media queries moved to bottom by clean_css.py */
 @media (max-width: 900px) {
   .auth-container {
