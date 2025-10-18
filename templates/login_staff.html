@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BigBag — Logowanie pracownika</title>
+    <link rel="stylesheet" href="/static/css/base.css" />
+    <link rel="stylesheet" href="/static/css/auth.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="/">BigBag</a>
+      </div>
+    </header>
+
+  <main class="auth-viewport">
+      <div class="auth-container">
+        <div class="auth-card">
+          <h1>Logowanie — Urzędnik</h1>
+          <form id="staffForm" class="login-form">
+          <label for="staffEmail">E-mail służbowy</label>
+          <input id="staffEmail" name="email" type="email" required />
+
+          <label for="staffPassword">Hasło</label>
+          <input id="staffPassword" name="password" type="password" required />
+
+            <div class="auth-actions">
+              <button type="submit" class="btn btn-primary">Zaloguj się</button>
+              <a class="btn btn-secondary" href="/templates/index.html">Anuluj</a>
+            </div>
+            <div class="alt-links">
+              <a href="mailto:adminbigbag@plock.eu">W razie problemów skontaktuj się z administratorem</a>
+            </div>
+          </form>
+
+        </div>
+      </div>
+    </main>
+
+    <script src="/static/js/main.js"></script>
+  </body>
+</html>
