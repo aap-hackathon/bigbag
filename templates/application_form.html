@@ -33,6 +33,7 @@
             class="apply-form"
             novalidate
             method="post"
+            enctype="multipart/form-data"
           >
             <label class="label" for="id_estate">Nieruchomość</label>
             <div class="field">
@@ -41,7 +42,7 @@
                 {% for estate in estates %}
                 <option value="{{ estate.id_estate }}">
                   ul. {{ estate.street }} {{ estate.building_number }}{% if
-                  estate.apartment_number %}/{{ estate.apartment_number }}{%
+                  estate.apartment_number %} m. {{ estate.apartment_number }}{%
                   endif %}
                 </option>
                 {% endfor %}

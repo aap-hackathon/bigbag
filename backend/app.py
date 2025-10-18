@@ -219,13 +219,117 @@ def signup() -> str:
 def application_form() -> str:
     """Renders the wniosek page."""
     cursor = db_connection.cursor(dictionary=True)
+
+    if flask.request.method == "POST":
+        # handle form submission: insert estate if new, then application, then attachment
+        form = flask.request.form
+        files = flask.request.files
+
+        id_estate = form.get("id_estate")
+        # if adding new estate, insert into estate table
+        if id_estate == "new":
+            new_type = form.get("new_est_type") or ""
+            # map Polish 'mieszkanie'/'dom' to DB enum 'apartment'/'house'
+            estate_type = "apartment" if new_type == "mieszkanie" else "house"
+            postal = form.get("new_est_postal") or ""
+            city = "Płock"
+            street = form.get("new_est_street") or ""
+            building = form.get("new_est_building") or ""
+            apartment_num = form.get("new_est_apartment") or None
+
+            try:
+                sector_val = form.get("new_est_osiedle") or "1"
+                try:
+                    id_sector = int(sector_val)
+                except Exception:
+                    id_sector = 1
+
+                cur = db_connection.cursor()
+                cur.execute(
+                    "INSERT INTO estate (id_citizen, id_sector, estate_type, postal_code, city, street, building_number, apartment_number) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                    (
+                        flask_login.current_user.id,
+                        id_sector,
+                        estate_type,
+                        postal,
+                        city,
+                        street,
+                        building,
+                        apartment_num,
+                    ),
+                )
+                db_connection.commit()
+                id_estate = cur.lastrowid
+                cur.close()
+            except mysql.connector.Error as err:
+                print("Error inserting estate:", err)
+                return flask.render_template(
+                    "application_form.html",
+                    estates=[],
+                    error="Błąd przy dodawaniu nieruchomości",
+                )
+
+        # now insert application
+        try:
+            cur = db_connection.cursor()
+            bag_arrival = form.get("bag_arrival_date") or None
+            bag_depart = form.get("bag_depart_date") or None
+            notes = form.get("notes") or None
+            bag_count = 1
+            cur.execute(
+                "INSERT INTO application (id_estate, id_citizen, status, bag_count, bag_arrival_date, bag_depart_date, notes) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                (
+                    id_estate,
+                    flask_login.current_user.id,
+                    "awaiting",
+                    bag_count,
+                    bag_arrival,
+                    bag_depart,
+                    notes,
+                ),
+            )
+            db_connection.commit()
+            id_application = cur.lastrowid
+            cur.close()
+        except mysql.connector.Error as err:
+            print("Error inserting application:", err)
+            return flask.render_template(
+                "application_form.html",
+                estates=[],
+                error="Błąd przy tworzeniu wniosku",
+            )
+
+        # handle attachment file (if provided)
+        if "new_est_attachment" in files:
+            f = files["new_est_attachment"]
+            if f and f.filename:
+                data = f.read()
+                try:
+                    cur = db_connection.cursor()
+                    cur.execute(
+                        "INSERT INTO attachment (id_application, file_name, file_type, file_data) VALUES (%s, %s, %s, %s)",
+                        (
+                            id_application,
+                            f.filename,
+                            f.content_type or "",
+                            data,
+                        ),
+                    )
+                    db_connection.commit()
+                    cur.close()
+                except mysql.connector.Error as err:
+                    print("Error inserting attachment:", err)
+                    # continue without failing the whole request
+
+        return flask.redirect(flask.url_for("resident_dashboard"))
+
+    # GET: render form
     cursor.execute(
         "SELECT * FROM estate WHERE id_citizen = %s",
         (flask_login.current_user.id,),
     )
     estates = cursor.fetchall()
     cursor.close()
-    print(estates)
     return flask.render_template("application_form.html", estates=estates)
 
 
