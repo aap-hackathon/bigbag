@@ -243,6 +243,18 @@ a {
 .status-approved { background: #ecfdf5; color: #05603a; }
 .status-declined { background: #fff1f2; color: #9f1239; }
 
+/* Paid bag badge */
+.paid-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.18rem 0.45rem;
+  border-radius: 6px;
+  background: #fff1f0;
+  color: #9f1239;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .action-link { color: var(--accent); font-weight: 600; }
 .action-link:hover { text-decoration: underline; }
 

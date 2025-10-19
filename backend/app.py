@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from typing import Any
-import re
 import flask
 import flask_login
 import mysql.connector
@@ -360,39 +359,12 @@ def resident_dashboard() -> str:
         if status_filter:
             where_clauses.append("a.status = %s")
             params.append(status_filter)
-        # detect if q contains a year (YYYY) or a full date (YYYY-MM-DD)
-        q_year = None
-        q_date = None
         if q:
-            # try full date first
-            m_date = re.search(r"(\d{4}-\d{2}-\d{2})", q)
-            if m_date:
-                q_date = m_date.group(1)
-            else:
-                m_year = re.search(r"\b(20\d{2}|19\d{2})\b", q)
-                if m_year:
-                    q_year = m_year.group(1)
-
-            # the remaining q for free-text search (strip found date/year)
-            q_text = q
-            if q_date:
-                q_text = q.replace(q_date, " ").strip()
-            elif q_year:
-                q_text = re.sub(r"\b" + re.escape(q_year) + r"\b", " ", q_text).strip()
-
-            if q_text:
-                where_clauses.append(
-                    "(e.street LIKE %s OR e.building_number LIKE %s OR e.apartment_number LIKE %s)"
-                )
-                likeq = f"%{q_text}%"
-                params.extend([likeq, likeq, likeq])
-
-            if q_date:
-                where_clauses.append("DATE(a.creation_date) = %s")
-                params.append(q_date)
-            elif q_year:
-                where_clauses.append("YEAR(a.creation_date) = %s")
-                params.append(q_year)
+            where_clauses.append(
+                "(e.street LIKE %s OR e.building_number LIKE %s OR e.apartment_number LIKE %s)"
+            )
+            likeq = f"%{q}%"
+            params.extend([likeq, likeq, likeq])
 
         where_sql = " AND ".join(where_clauses)
 
@@ -414,6 +386,92 @@ def resident_dashboard() -> str:
         fetch_params = tuple(params + [per_page, offset])
         cur.execute(fetch_sql, fetch_params)
         applications = cur.fetchall()
+
+        # Compute paid/free bags per application (one free bag per estate per calendar year)
+        if applications:
+            sum_cur = db_connection.cursor(dictionary=True)
+            try:
+                for a in applications:
+                    try:
+                        estate_id = a.get("id_estate")
+                        creation = a.get("creation_date")
+                        app_id = a.get("id_application")
+                        bag_count = int(a.get("bag_count") or 0)
+                    except Exception:
+                        estate_id = a.get("id_estate")
+                        creation = a.get("creation_date")
+                        app_id = a.get("id_application")
+                        bag_count = a.get("bag_count") or 0
+
+                    sum_sql = (
+                        "SELECT COALESCE(SUM(bag_count),0) as prior_bags "
+                        "FROM application "
+                        "WHERE id_estate = %s AND YEAR(creation_date) = YEAR(%s) "
+                        "AND (creation_date < %s OR (creation_date = %s AND id_application < %s))"
+                    )
+                    sum_cur.execute(
+                        sum_sql,
+                        (estate_id, creation, creation, creation, app_id),
+                    )
+                    srow = sum_cur.fetchone()
+                    prior_bags = (
+                        srow["prior_bags"]
+                        if srow and "prior_bags" in srow
+                        else 0
+                    )
+
+                    free_remaining = max(0, 1 - int(prior_bags or 0))
+                    free_for_this = min(free_remaining, bag_count)
+                    paid_for_this = bag_count - free_for_this
+
+                    a["free_bags"] = free_for_this
+                    a["paid_bags"] = paid_for_this
+            finally:
+                sum_cur.close()
+
+        # Compute paid/free bags per application (one free bag per estate per calendar year)
+        if applications:
+            sum_cur = db_connection.cursor(dictionary=True)
+            try:
+                for a in applications:
+                    try:
+                        estate_id = a.get("id_estate")
+                        creation = a.get("creation_date")
+                        app_id = a.get("id_application")
+                        bag_count = int(a.get("bag_count") or 0)
+                    except Exception:
+                        # fallback defaults
+                        estate_id = a.get("id_estate")
+                        creation = a.get("creation_date")
+                        app_id = a.get("id_application")
+                        bag_count = a.get("bag_count") or 0
+
+                    # prior bags in same calendar year and earlier than this application
+                    sum_sql = (
+                        "SELECT COALESCE(SUM(bag_count),0) as prior_bags "
+                        "FROM application "
+                        "WHERE id_estate = %s AND YEAR(creation_date) = YEAR(%s) "
+                        "AND (creation_date < %s OR (creation_date = %s AND id_application < %s))"
+                    )
+                    sum_cur.execute(
+                        sum_sql,
+                        (estate_id, creation, creation, creation, app_id),
+                    )
+                    srow = sum_cur.fetchone()
+                    prior_bags = (
+                        srow["prior_bags"]
+                        if srow and "prior_bags" in srow
+                        else 0
+                    )
+
+                    free_remaining = max(0, 1 - int(prior_bags or 0))
+                    free_for_this = min(free_remaining, bag_count)
+                    paid_for_this = bag_count - free_for_this
+
+                    a["free_bags"] = free_for_this
+                    a["paid_bags"] = paid_for_this
+            finally:
+                sum_cur.close()
 
         # fetch attachments for listed applications
         app_ids = (
@@ -560,38 +618,13 @@ def staff_dashboard() -> str:
         if status_filter:
             where_clauses.append("a.status = %s")
             params.append(status_filter)
-        # detect year or full-date in q
-        q_year = None
-        q_date = None
         if q:
-            m_date = re.search(r"(\d{4}-\d{2}-\d{2})", q)
-            if m_date:
-                q_date = m_date.group(1)
-            else:
-                m_year = re.search(r"\b(20\d{2}|19\d{2})\b", q)
-                if m_year:
-                    q_year = m_year.group(1)
-
-            q_text = q
-            if q_date:
-                q_text = q.replace(q_date, " ").strip()
-            elif q_year:
-                q_text = re.sub(r"\b" + re.escape(q_year) + r"\b", " ", q_text).strip()
-
-            if q_text:
-                # search in address and citizen fields
-                where_clauses.append(
-                    "(e.street LIKE %s OR e.building_number LIKE %s OR e.apartment_number LIKE %s OR c.first_name LIKE %s OR c.last_name LIKE %s OR c.email LIKE %s)"
-                )
-                likeq = f"%{q_text}%"
-                params.extend([likeq, likeq, likeq, likeq, likeq, likeq])
-
-            if q_date:
-                where_clauses.append("DATE(a.creation_date) = %s")
-                params.append(q_date)
-            elif q_year:
-                where_clauses.append("YEAR(a.creation_date) = %s")
-                params.append(q_year)
+            # search in address and citizen fields
+            where_clauses.append(
+                "(e.street LIKE %s OR e.building_number LIKE %s OR e.apartment_number LIKE %s OR c.first_name LIKE %s OR c.last_name LIKE %s OR c.email LIKE %s)"
+            )
+            likeq = f"%{q}%"
+            params.extend([likeq, likeq, likeq, likeq, likeq, likeq])
 
         where_sql = " AND ".join(where_clauses) if where_clauses else "1"
 
