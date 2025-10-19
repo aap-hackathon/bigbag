@@ -32,7 +32,15 @@
 
 .auth-card p {
   color: var(--muted);
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Reduce vertical spacing for 'lead' paragraphs used in auth/dashboard */
+.lead {
+  margin-top: 0.25rem;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+  color: var(--muted);
 }
 
 .apply-form .checkbox-inline input[type="checkbox"] {
@@ -222,9 +230,12 @@ a {
 .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 0.75rem; min-width: 640px; }
 .table th, .table td { padding: 0.6rem 0.75rem; text-align: left; border-bottom: 1px solid rgba(15,23,42,0.06); }
+.table th:nth-child(3), .table td:nth-child(3) { text-align: center; vertical-align: middle; }
 .table thead { display: table-header-group; }
 .table thead th { font-weight: 700; font-size: 0.95rem; color: #0b1720; background: var(--card); box-shadow: 0 4px 8px rgba(11,23,36,0.04); }
 .table tbody tr:hover { background: rgba(11,23,36,0.02); }
+
+.table td > div[style*="display:flex"] { justify-content: center; }
 
 .status-badge { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 999px; font-weight: 700; font-size: 0.85rem; }
 .status-awaiting { background: #fff4e6; color: #7a4a00; }
@@ -242,16 +253,86 @@ a {
   .table th:nth-child(4), .table td:nth-child(4) { display: none; } /* hide bag_count on small */
 }
 
+/* At <=700px: center headings and buttons for a more compact mobile layout */
+@media (max-width: 700px) {
+  .auth-card h1,
+  .auth-card h2,
+  .auth-card .lead {
+    text-align: center;
+  }
+
+  /* Make standalone buttons center in their containers */
+  .auth-card .btn,
+  .auth-card .btn-primary,
+  .auth-card .btn-secondary,
+  .pagination-controls .btn,
+  .pagination-controls span.btn,
+  .pagination-controls .page-jump__btn {
+    display: inline-block;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* Ensure flex groups center their items */
+  .auth-actions,
+  .pagination-controls {
+    justify-content: center;
+    text-align: center;
+  }
+}
+
 .pagination { display:flex; gap:0.5rem; align-items:center; justify-content:center; }
 .pagination .btn { padding: 0.45rem 0.7rem; border-radius:6px; }
 .btn-secondary { background: #f3f4f6; color: #0b1720; }
 
-/* Page-jump control */
+/* Make all pagination controls a uniform gray */
+.pagination-controls .btn, .pagination-controls span.btn, .pagination-controls .page-jump__btn {
+  background: #e6e6e6;
+  color: #0b1720;
+  border: none;
+  box-shadow: none;
+  padding: 0.32rem 0.5rem;
+  font-size: 0.88rem;
+  border-radius: 6px;
+}
+.pagination-controls .btn:hover { background: #d5d5d5; }
+
+/* Layout: center pagination row, place page-jump below centered */
+.pagination-controls{
+  display: block;
+  text-align: center;
+  margin-top: 1rem;
+}
+.pagination-controls .btn, .pagination-controls span.btn{
+  display: inline-block;
+  margin: 0 0.35rem;
+}
+.pagination-controls .page-jump{
+  display: block;
+  margin-top: 0.6rem;
+  text-align: center;
+}
+
+/* Page-jump control: align sizing and appearance with pagination buttons */
 .page-jump { display:inline-flex; align-items:center; gap:0.45rem; }
-.page-jump__label { font-size:0.9rem; color:var(--muted); }
-.page-jump__input { width:4.2rem; padding:0.35rem 0.5rem; border-radius:999px; border:1px solid rgba(15,23,42,0.06); text-align:center; }
-.page-jump__btn { padding:0.35rem 0.6rem; border-radius:999px; background:linear-gradient(180deg,var(--accent) 0%,var(--accent-2) 100%); color:#fff; border:0; font-weight:700; cursor:pointer; box-shadow:0 6px 14px rgba(11,23,36,0.12); }
-.page-jump__btn:active{ transform: translateY(1px); }
+.page-jump__label { font-size:0.95rem; color:var(--muted); }
+.page-jump__input { width:4.2rem; padding:0.45rem 0.6rem; border-radius:6px; border:1px solid rgba(15,23,42,0.06); text-align:center; font-size:0.95rem; }
+/* make the page-jump button visually match the pagination gray buttons */
+.pagination-controls .page-jump__btn {
+  padding: 0.45rem 0.7rem;
+  border-radius: 6px;
+  background: #e6e6e6;
+  color: #0b1720;
+  border: none;
+  box-shadow: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pagination-controls .page-jump__btn:hover { background: #d5d5d5; }
+.pagination-controls .page-jump__btn:active { transform: translateY(1px); }
+
+/* small utility button */
+.btn-sm { padding: 0.28rem 0.45rem; font-size: 0.85rem; border-radius: 6px; min-width: auto; }
 
 /* Modal viewer for attachment previews (images & PDFs) */
 .media-modal { display: none; position: fixed; inset: 0; background: rgba(2,6,23,0.6); z-index: 1200; align-items: center; justify-content: center; padding: 1.25rem; }
