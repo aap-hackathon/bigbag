@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Podgląd załącznika — BigBag</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="{{ url_for('index') }}">PłockiBigBag.pl</a>
+      </div>
+    </header>
+
+    <main class="auth-viewport">
+      <div class="auth-container">
+        <div class="auth-card">
+          <h1>Podgląd załącznika</h1>
+          <p style="color:var(--muted);">{{ file_name }}</p>
+
+          {% if file_type and file_type.startswith('image/') %}
+            <div style="text-align:center; margin:1rem 0;">
+              <img src="{{ url_for('serve_attachment', attachment_id=attachment_id) }}" alt="{{ file_name }}" style="max-width:100%; height:auto; border-radius:6px;" />
+            </div>
+          {% elif file_type == 'application/pdf' %}
+            <div style="margin:1rem 0;">
+              <iframe src="{{ url_for('serve_attachment', attachment_id=attachment_id) }}" style="width:100%; height:80vh; border:1px solid rgba(0,0,0,0.06); border-radius:6px;"></iframe>
+            </div>
+          {% else %}
+            <div style="padding:1rem; background:var(--card); border-radius:6px;">
+              <p>Plik: <strong>{{ file_name }}</strong></p>
+              <p>Typ: <strong>{{ file_type }}</strong></p>
+            </div>
+          {% endif %}
+
+          <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+            <a class="btn btn-primary" href="{{ url_for('serve_attachment', attachment_id=attachment_id) }}">Pobierz</a>
+            <a class="btn btn-secondary" href="{{ url_for('resident_dashboard') }}">Powrót</a>
+          </div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

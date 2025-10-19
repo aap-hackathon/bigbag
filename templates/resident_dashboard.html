@@ -55,6 +55,7 @@
                   <tr>
                     <th>ID</th>
                     <th>Adres</th>
+                    <th>Załącznik</th>
                     <th>Status</th>
                     <th>Worki</th>
                     <th>Data dostarczenia</th>
@@ -69,6 +70,29 @@
                     <td>{{ a.id_application }}</td>
                     <td>
                       ul. {{ a.street }} {{ a.building_number }}{% if a.apartment_number %}/{{ a.apartment_number }}{% endif %}
+                    </td>
+                    <td>
+                      {% set atts = attachments_map.get(a.id_application) if attachments_map else None %}
+                      {% if atts and atts|length > 0 %}
+                        <div style="display:flex; gap:0.5rem; align-items:center;">
+                          {% for att in atts %}
+                            {% set src = url_for('serve_attachment', attachment_id=att.id_attachment) %}
+                            {% if att.file_type and att.file_type.startswith('image/') %}
+                              <button class="media-thumb" data-type="image" data-src="{{ src }}" data-name="{{ att.file_name }}" style="border:0; background:transparent; padding:0;">
+                                <img src="{{ src }}" alt="{{ att.file_name }}" style="height:48px; width:auto; border-radius:4px; display:block;" />
+                              </button>
+                            {% elif att.file_type == 'application/pdf' %}
+                              <button class="media-thumb" data-type="pdf" data-src="{{ src }}" data-name="{{ att.file_name }}" style="border:0; background:transparent; padding:0; color:var(--accent); font-weight:600;">
+                                📄 {{ att.file_name }}
+                              </button>
+                            {% else %}
+                              <a class="action-link" href="{{ url_for('attachment_view', attachment_id=att.id_attachment) }}" target="_blank" rel="noopener">{{ att.file_name }}</a>
+                            {% endif %}
+                          {% endfor %}
+                        </div>
+                      {% else %}
+                        -
+                      {% endif %}
                     </td>
                     <td>
                       {% set status_label = '???' %}
@@ -131,5 +155,80 @@
         </div>
       </div>
     </main>
+
+    <!-- Modal for media preview -->
+    <div class="media-modal" id="mediaModal" aria-hidden="true">
+      <div class="media-modal__dialog" role="dialog" aria-modal="true">
+        <div class="media-modal__header">
+          <div class="media-modal__title" id="mediaModalTitle">Podgląd</div>
+          <button class="media-modal__close" id="mediaModalClose" aria-label="Zamknij">×</button>
+        </div>
+        <div class="media-modal__body" id="mediaModalBody">
+          <!-- dynamic content: img or iframe -->
+        </div>
+        <div class="media-modal__actions">
+          <a class="btn btn-secondary" id="mediaDownload" href="#">Pobierz</a>
+          <button class="btn" id="mediaCloseBtn">Zamknij</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function(){
+        const modal = document.getElementById('mediaModal');
+        const body = document.getElementById('mediaModalBody');
+        const title = document.getElementById('mediaModalTitle');
+        const closeBtn = document.getElementById('mediaModalClose');
+        const closeBtn2 = document.getElementById('mediaCloseBtn');
+        const download = document.getElementById('mediaDownload');
+
+        function openModal(type, src, name){
+          body.innerHTML = '';
+          title.textContent = name || 'Podgląd';
+          if(type === 'image'){
+            const img = document.createElement('img');
+            img.src = src;
+            img.alt = name || '';
+            img.style.maxWidth = '100%';
+            img.style.height = 'auto';
+            body.appendChild(img);
+            download.href = src;
+            download.setAttribute('download', name || 'image');
+          } else if(type === 'pdf'){
+            const iframe = document.createElement('iframe');
+            iframe.src = src;
+            iframe.style.width = '100%';
+            iframe.style.height = '80vh';
+            iframe.setAttribute('aria-label', name || 'PDF');
+            body.appendChild(iframe);
+            download.href = src;
+          }
+
+          modal.classList.add('is-open');
+          modal.setAttribute('aria-hidden', 'false');
+        }
+
+        function closeModal(){
+          modal.classList.remove('is-open');
+          modal.setAttribute('aria-hidden', 'true');
+          body.innerHTML = '';
+          download.href = '#';
+        }
+
+        document.querySelectorAll('.media-thumb').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const type = btn.getAttribute('data-type');
+            const src = btn.getAttribute('data-src');
+            const name = btn.getAttribute('data-name');
+            openModal(type, src, name);
+          });
+        });
+
+        closeBtn.addEventListener('click', closeModal);
+        closeBtn2.addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => { if(e.target === modal) closeModal(); });
+        document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeModal(); });
+      })();
+    </script>
   </body>
 </html>

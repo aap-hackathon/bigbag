@@ -371,6 +371,24 @@ def resident_dashboard() -> str:
             (flask_login.current_user.id, per_page, offset),
         )
         applications = cur.fetchall()
+
+        # fetch attachments for the listed applications (minimize queries by one IN query)
+        app_ids = (
+            [a["id_application"] for a in applications] if applications else []
+        )
+        attachments_map = {}
+        if app_ids:
+            format_strings = ",".join(["%s"] * len(app_ids))
+            cur.execute(
+                f"SELECT id_attachment, id_application, file_name, file_type FROM attachment WHERE id_application IN ({format_strings})",
+                tuple(app_ids),
+            )
+            atts = cur.fetchall()
+            for att in atts:
+                # keep only the first attachment per application for preview
+                attachments_map.setdefault(att["id_application"], []).append(
+                    att
+                )
     finally:
         cur.close()
 
@@ -379,9 +397,99 @@ def resident_dashboard() -> str:
     return flask.render_template(
         "resident_dashboard.html",
         applications=applications,
+        attachments_map=attachments_map,
         page=page,
         total_pages=total_pages,
     )
+
+
+@app.route("/attachment/<int:attachment_id>")
+@flask_login.login_required
+def serve_attachment(attachment_id: int) -> flask.Response:
+    """Serve attachment content from the database.
+
+    Returns the raw file bytes with appropriate Content-Type and a safe
+    Content-Disposition to allow inline display for images and download for others.
+    """
+    cur = db_connection.cursor(dictionary=True)
+    try:
+        # join with application so we can verify ownership
+        cur.execute(
+            """
+            SELECT att.file_name, att.file_type, att.file_data, app.id_citizen
+            FROM attachment att
+            JOIN application app ON att.id_application = app.id_application
+            WHERE att.id_attachment = %s
+            """,
+            (attachment_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            return flask.abort(404)
+
+        # Authorization: allow if current user is the owner (citizen) or an employee
+        owner_id = row["id_citizen"] if "id_citizen" in row else None
+        if flask_login.current_user.type == "citizen":
+            if str(owner_id) != str(flask_login.current_user.id):
+                return flask.abort(403)
+
+        file_name = row["file_name"] if "file_name" in row else "attachment"
+        file_type = (
+            row["file_type"]
+            if "file_type" in row
+            else "application/octet-stream"
+        )
+        data = row["file_data"]
+
+        resp = flask.make_response(data)
+        resp.headers["Content-Type"] = file_type
+        # suggest inline for images and PDFs, otherwise force download
+        if file_type.startswith("image/") or file_type == "application/pdf":
+            disposition = f'inline; filename="{file_name}"'
+        else:
+            disposition = f'attachment; filename="{file_name}"'
+        resp.headers["Content-Disposition"] = disposition
+        return resp
+    finally:
+        cur.close()
+
+
+@app.route("/attachment/view/<int:attachment_id>")
+@flask_login.login_required
+def attachment_view(attachment_id: int) -> str:
+    """Render a small page showing the attachment preview and a download button.
+
+    This endpoint only returns metadata and a small HTML page; the actual bytes
+    are served by `serve_attachment` (which enforces authorization).
+    """
+    cur = db_connection.cursor(dictionary=True)
+    try:
+        cur.execute(
+            """
+            SELECT att.id_attachment, att.file_name, att.file_type, app.id_citizen
+            FROM attachment att
+            JOIN application app ON att.id_application = app.id_application
+            WHERE att.id_attachment = %s
+            """,
+            (attachment_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            return flask.abort(404)
+
+        owner_id = row["id_citizen"] if "id_citizen" in row else None
+        if flask_login.current_user.type == "citizen":
+            if str(owner_id) != str(flask_login.current_user.id):
+                return flask.abort(403)
+
+        return flask.render_template(
+            "attachment_view.html",
+            attachment_id=row["id_attachment"],
+            file_name=row["file_name"],
+            file_type=row["file_type"],
+        )
+    finally:
+        cur.close()
 
 
 @app.route("/panel/urzednik")
