@@ -957,9 +957,10 @@ def staff_dashboard() -> str:
 
         # paginated fetch: include citizen info and estate address
         fetch_sql = f"""
-            SELECT a.*, e.street, e.building_number, e.apartment_number, c.first_name, c.last_name, c.email
+            SELECT a.*, e.id_sector, e.street, e.building_number, e.apartment_number, s.managing_company, c.first_name, c.last_name, c.email
             FROM application a
             LEFT JOIN estate e ON a.id_estate = e.id_estate
+            LEFT JOIN sector s ON e.id_sector = s.id_sector
             LEFT JOIN citizen c ON a.id_citizen = c.id_citizen
             WHERE {where_sql}
             ORDER BY a.creation_date DESC

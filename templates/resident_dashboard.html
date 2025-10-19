@@ -34,7 +34,6 @@
           <div style="display:flex; flex-direction:row; gap:1rem; align-items:center; margin-top:1.5rem;">
             <a class="btn btn-primary" href="{{ url_for('application_form') }}">Wyślij nowy wniosek</a>
           </div>
-
           <!-- Applications table -->
           <div style="margin-top: 1.5rem; width: 100%">
             <h2>Twoje wnioski</h2>
@@ -123,7 +122,7 @@
                       {% if atts and atts|length > 0 %}
                         {% set att_names = atts | map(attribute='file_name') | join('|||') %}
                       {% endif %}
-                      <a class="btn btn-sm" href="{{ url_for('application_print', app_id=a.id_application) }}?autoprint=1" target="_blank" rel="noopener">Drukuj</a>
+                      <a class="btn btn-sm" href="{{ url_for('application_print', app_id=a.id_application) }}?autoprint=1" target="_blank" rel="noopener">Pobierz PDF</a>
                     </td>
                   </tr>
                   {% endfor %}
@@ -214,6 +213,27 @@
       </div>
     </div>
 
+    <!-- pickup info modal -->
+    <div class="media-modal" id="pickupModal" aria-hidden="true">
+      <div class="media-modal__dialog" role="dialog" aria-modal="true">
+        <div class="media-modal__header">
+          <div class="media-modal__title" id="pickupModalTitle">Informacje o pobiorze</div>
+          <button class="media-modal__close" id="pickupModalClose" aria-label="Zamknij">×</button>
+        </div>
+        <div class="media-modal__body" id="pickupModalBody">
+          <p><strong>Adres:</strong> <span id="pickupAddress">-</span></p>
+          <p><strong>Liczba worków:</strong> <span id="pickupBags">-</span> <small id="pickupPaid" style="color:#c33"></small></p>
+          <p><strong>Data dostarczenia:</strong> <span id="pickupArrival">-</span></p>
+          <p><strong>Data odbioru:</strong> <span id="pickupDepart">-</span></p>
+          <p><strong>Notatki:</strong> <span id="pickupNotes">-</span></p>
+          <p><strong>Załączniki:</strong> <span id="pickupAttachments">-</span></p>
+        </div>
+        <div class="media-modal__actions">
+          <button class="btn" id="pickupModalCloseBtn">Zamknij</button>
+        </div>
+      </div>
+    </div>
+
     <script>
       (function(){
         const modal = document.getElementById('mediaModal');
@@ -279,6 +299,36 @@
         closeBtn2.addEventListener('click', closeModal);
         modal.addEventListener('click', (e) => { if(e.target === modal) closeModal(); });
         document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeModal(); });
+      })();
+    </script>
+    <script>
+      // pickup modal handlers
+      (function(){
+        const modal = document.getElementById('pickupModal');
+        const close = document.getElementById('pickupModalClose');
+        const closeBtn = document.getElementById('pickupModalCloseBtn');
+
+        function openPickup(btn){
+          const addr = `ul. ${btn.getAttribute('data-street') || '-'} ${btn.getAttribute('data-building') || ''}${btn.getAttribute('data-apartment') ? ('/' + btn.getAttribute('data-apartment')) : ''}`;
+          document.getElementById('pickupAddress').textContent = addr;
+          const bags = btn.getAttribute('data-bag-count') || '0';
+          const paid = btn.getAttribute('data-paid-bags') || '0';
+          document.getElementById('pickupBags').textContent = bags;
+          document.getElementById('pickupPaid').textContent = (paid && Number(paid) > 0) ? `${paid} płatne` : '';
+          document.getElementById('pickupArrival').textContent = btn.getAttribute('data-arrival') || '-';
+          document.getElementById('pickupDepart').textContent = btn.getAttribute('data-depart') || '-';
+          document.getElementById('pickupNotes').textContent = btn.getAttribute('data-notes') || '-';
+          const atts = (btn.getAttribute('data-attachments') || '').split('|||').filter(Boolean);
+          document.getElementById('pickupAttachments').textContent = atts.length ? atts.join(', ') : '-';
+          modal.classList.add('is-open'); modal.setAttribute('aria-hidden','false');
+        }
+
+        function closePickup(){ modal.classList.remove('is-open'); modal.setAttribute('aria-hidden','true'); }
+
+        document.querySelectorAll('.pickup-info').forEach(b => b.addEventListener('click',(e)=>{ openPickup(b); }));
+        if(close) close.addEventListener('click', closePickup);
+        if(closeBtn) closeBtn.addEventListener('click', closePickup);
+        modal.addEventListener('click', (e)=>{ if(e.target === modal) closePickup(); });
       })();
     </script>
     <script>
