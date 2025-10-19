@@ -263,6 +263,28 @@ a {
 .action-link { color: var(--accent); font-weight: 600; }
 .action-link:hover { text-decoration: underline; }
 
+/* Clickable applicant name in staff dashboard */
+.citizen-link {
+  color: #0b5ea8; /* blue */
+  font-weight: 700;
+  text-decoration: underline;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.citizen-link:hover { color: #084c7a; }
+.citizen-link:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(11,94,168,0.10);
+  border-radius: 4px;
+}
+
+#citizenModalBody {
+  flex-direction: column;
+  gap: 0rem !important;
+}
+
 /* Make dashboard card slightly roomier for table */
 .auth-card .table { margin-top: 1rem; }
 

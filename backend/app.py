@@ -9,6 +9,7 @@ app: flask.Flask = flask.Flask(
 )
 app.secret_key = "wielkiedildo33cm"
 
+
 def compute_free_paid(applications):
     """Compute free_bags and paid_bags for each application in the list.
 
@@ -37,7 +38,9 @@ def compute_free_paid(applications):
                     a = {
                         "id_estate": getattr(orig, "id_estate", None),
                         "creation_date": getattr(orig, "creation_date", None),
-                        "id_application": getattr(orig, "id_application", None),
+                        "id_application": getattr(
+                            orig, "id_application", None
+                        ),
                         "bag_count": getattr(orig, "bag_count", 0),
                     }
 
@@ -62,9 +65,13 @@ def compute_free_paid(applications):
                     "WHERE id_estate = %s AND YEAR(creation_date) = YEAR(%s) "
                     "AND (creation_date < %s OR (creation_date = %s AND id_application < %s))"
                 )
-                sum_cur.execute(sum_sql, (estate_id, creation, creation, creation, app_id))
+                sum_cur.execute(
+                    sum_sql, (estate_id, creation, creation, creation, app_id)
+                )
                 srow = sum_cur.fetchone()
-                prior_bags = srow["prior_bags"] if srow and "prior_bags" in srow else 0
+                prior_bags = (
+                    srow["prior_bags"] if srow and "prior_bags" in srow else 0
+                )
 
                 free_remaining = max(0, 1 - int(prior_bags or 0))
                 free_for_this = min(free_remaining, bag_count)
@@ -852,6 +859,44 @@ def attachment_view(attachment_id: int) -> str:
             attachment_id=row["id_attachment"],
             file_name=row["file_name"],
             file_type=row["file_type"],
+        )
+    finally:
+        cur.close()
+
+
+@app.route("/citizen/<int:citizen_id>/info")
+@flask_login.login_required
+def citizen_info(citizen_id: int):
+    """Return basic citizen info (PESEL) for employees as JSON."""
+    # only employees may fetch PESELs here
+    if flask_login.current_user.type == "citizen":
+        return flask.abort(403)
+
+    cur = db_connection.cursor(dictionary=True)
+    try:
+        # select all citizen columns except password
+        cur.execute(
+            "SELECT id_citizen, pesel, first_name, last_name, phone_number, birth_date, reg_address, nip, creation_date, email FROM citizen WHERE id_citizen = %s",
+            (citizen_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            return flask.jsonify({"ok": False, "error": "not_found"}), 404
+
+        return flask.jsonify(
+            {
+                "ok": True,
+                "id": row.get("id_citizen"),
+                "pesel": row.get("pesel"),
+                "first_name": row.get("first_name"),
+                "last_name": row.get("last_name"),
+                "phone_number": row.get("phone_number"),
+                "birth_date": row.get("birth_date"),
+                "reg_address": row.get("reg_address"),
+                "nip": row.get("nip"),
+                "creation_date": row.get("creation_date"),
+                "email": row.get("email"),
+            }
         )
     finally:
         cur.close()

@@ -57,7 +57,12 @@
                   {% for a in applications %}
                   <tr>
                     <td>{{ a.id_application }}</td>
-                    <td>{{ a.first_name }} {{ a.last_name }}<br/><small>{{ a.email }}</small></td>
+                    <td>
+                      <button class="citizen-link" data-citizen-id="{{ a.id_citizen }}" style="border:0;background:transparent;padding:0;color:var(--text);font-weight:600;cursor:pointer;">
+                        {{ a.first_name }} {{ a.last_name }}
+                      </button>
+                      <br/><small>{{ a.email }}</small>
+                    </td>
                     <td>ul. {{ a.street }} {{ a.building_number }}{% if a.apartment_number %}/{{ a.apartment_number }}{% endif %}</td>
                     <td>
                       {% set atts = attachments_map.get(a.id_application) if attachments_map else None %}
@@ -193,6 +198,31 @@
       </div>
     </div>
 
+    <!-- citizen info modal -->
+    <div class="media-modal" id="citizenModal" aria-hidden="true">
+      <div class="media-modal__dialog" role="dialog" aria-modal="true">
+        <div class="media-modal__header">
+          <div class="media-modal__title" id="citizenModalTitle">Dane wnioskodawcy</div>
+          <button class="media-modal__close" id="citizenModalClose" aria-label="Zamknij">×</button>
+        </div>
+        <div class="media-modal__body" id="citizenModalBody">
+          <p><strong>ID:</strong> <span id="citizenId">-</span></p>
+          <p><strong>Imię:</strong> <span id="citizenFirst">-</span></p>
+          <p><strong>Nazwisko:</strong> <span id="citizenLast">-</span></p>
+          <p><strong>PESEL:</strong> <span id="citizenPesel">-</span></p>
+          <p><strong>Numer telefonu:</strong> <span id="citizenPhone">-</span></p>
+          <p><strong>Data urodzenia:</strong> <span id="citizenBirth">-</span></p>
+          <p><strong>Adres zameldowania:</strong> <span id="citizenAddress">-</span></p>
+          <p><strong>NIP:</strong> <span id="citizenNip">-</span></p>
+          <p><strong>E-mail:</strong> <span id="citizenEmail">-</span></p>
+          <p><strong>Utworzono:</strong> <span id="citizenCreated">-</span></p>
+        </div>
+        <div class="media-modal__actions">
+          <button class="btn" id="citizenModalCloseBtn">Zamknij</button>
+        </div>
+      </div>
+    </div>
+
     <script>
       (function(){
         const modal = document.getElementById('mediaModal');
@@ -321,6 +351,62 @@
           }
         });
       });
+
+      // citizen info modal handlers
+      (function(){
+        const citModal = document.getElementById('citizenModal');
+        const citBody = document.getElementById('citizenModalBody');
+        const citTitle = document.getElementById('citizenModalTitle');
+        const citClose = document.getElementById('citizenModalClose');
+        const citCloseBtn = document.getElementById('citizenModalCloseBtn');
+
+        async function openCitizenModal(citizenId){
+          // fetch info
+          try{
+            const res = await fetch(`/citizen/${citizenId}/info`, {headers:{'X-Requested-With':'XMLHttpRequest'}});
+            if(!res.ok){
+              alert('Nie można pobrać danych wnioskodawcy');
+              return;
+            }
+            const data = await res.json();
+            if(!data.ok){
+              alert('Błąd: ' + (data.error||'nieznany'));
+              return;
+            }
+            document.getElementById('citizenId').textContent = data.id || '-';
+            document.getElementById('citizenFirst').textContent = data.first_name || '-';
+            document.getElementById('citizenLast').textContent = data.last_name || '-';
+            document.getElementById('citizenPesel').textContent = data.pesel || '-';
+            document.getElementById('citizenPhone').textContent = data.phone_number || '-';
+            document.getElementById('citizenBirth').textContent = data.birth_date || '-';
+            document.getElementById('citizenAddress').textContent = data.reg_address || '-';
+            document.getElementById('citizenNip').textContent = data.nip || '-';
+            document.getElementById('citizenEmail').textContent = data.email || '-';
+            document.getElementById('citizenCreated').textContent = data.creation_date || '-';
+            citModal.classList.add('is-open');
+            citModal.setAttribute('aria-hidden','false');
+          }catch(err){
+            console.error(err);
+            alert('Wystąpił błąd przy pobieraniu danych.');
+          }
+        }
+
+        function closeCitizenModal(){
+          citModal.classList.remove('is-open');
+          citModal.setAttribute('aria-hidden','true');
+        }
+
+        document.querySelectorAll('.citizen-link').forEach(btn=>{
+          btn.addEventListener('click', (e)=>{
+            const id = btn.getAttribute('data-citizen-id');
+            if(id) openCitizenModal(id);
+          });
+        });
+
+        citClose.addEventListener('click', closeCitizenModal);
+        citCloseBtn.addEventListener('click', closeCitizenModal);
+        citModal.addEventListener('click', (e)=>{ if(e.target === citModal) closeCitizenModal(); });
+      })();
     </script>
   </body>
 </html>
