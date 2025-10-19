@@ -121,7 +121,6 @@
                           data-notes="{{ a.notes | e }}"
                           data-attachments="{{ att_names }}"
                         >Informacje o pobiorze</button>
-                        <button class="btn btn-sm sector-info" data-sector-id="{{ a.id_sector or '' }}" data-sector-company="{{ a.managing_company or '' }}">Sektor</button>
                         <a class="btn" href="{{ url_for('application_print', app_id=a.id_application) }}?autoprint=1" target="_blank" rel="noopener">Pobierz PDF</a>
                         <button class="btn btn-primary ajax-decision" data-app-id="{{ a.id_application }}" data-action="approve">Zatwierdź</button>
                         <button class="btn btn-secondary ajax-decision" data-app-id="{{ a.id_application }}" data-action="decline">Odrzuć</button>
@@ -484,29 +483,6 @@
         document.addEventListener('keydown', function(e){ if(e.key === 'Escape'){ const m = document.getElementById('pickupModal'); if(m){ m.classList.remove('is-open'); m.setAttribute('aria-hidden','true'); } } });
       })();
     </script>
-    <script>
-      // sector modal for staff
-      (function(){
-        const sectorModalHtml = `
-          <div class="media-modal" id="sectorModal" aria-hidden="true">
-            <div class="media-modal__dialog" role="dialog" aria-modal="true">
-              <div class="media-modal__header">
-                <div class="media-modal__title">Sektor</div>
-                <button class="media-modal__close" id="sectorModalClose" aria-label="Zamknij">×</button>
-              </div>
-              <div class="media-modal__body">
-                <p><strong>ID sektora:</strong> <span id="sectorId">-</span></p>
-                <p><strong>Firma zarządzająca:</strong> <span id="sectorCompany">-</span></p>
-              </div>
-              <div class="media-modal__actions"><button class="btn" id="sectorCloseBtn">Zamknij</button></div>
-            </div>
-          </div>`;
-        const wrapper = document.createElement('div'); wrapper.innerHTML = sectorModalHtml; document.body.appendChild(wrapper);
-        function openSector(btn){ const id = btn.getAttribute('data-sector-id') || '-'; const comp = btn.getAttribute('data-sector-company') || '-'; document.getElementById('sectorId').textContent = id; document.getElementById('sectorCompany').textContent = comp; const m = document.getElementById('sectorModal'); m.classList.add('is-open'); m.setAttribute('aria-hidden','false'); }
-        function closeSector(){ const m=document.getElementById('sectorModal'); if(m){ m.classList.remove('is-open'); m.setAttribute('aria-hidden','true'); }}
-        document.addEventListener('click', function(e){ const b = e.target.closest('.sector-info'); if(b){ e.preventDefault(); openSector(b); } if(e.target && (e.target.id==='sectorModalClose' || e.target.id==='sectorCloseBtn')) closeSector(); });
-        document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeSector(); });
-      })();
-    </script>
+
   </body>
 </html>

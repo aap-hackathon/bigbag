@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from typing import Any
 import flask
 import flask_login
 import mysql.connector
@@ -460,9 +459,10 @@ def resident_dashboard() -> str:
 
         # paginated fetch
         fetch_sql = f"""
-            SELECT a.*, e.street, e.building_number, e.apartment_number
+            SELECT a.*, e.id_sector, s.managing_company, s.company_address, s.company_hours, e.street, e.building_number, e.apartment_number
             FROM application a
             LEFT JOIN estate e ON a.id_estate = e.id_estate
+            LEFT JOIN sector s ON e.id_sector = s.id_sector
             WHERE {where_sql}
             ORDER BY a.creation_date DESC
             LIMIT %s OFFSET %s
@@ -957,7 +957,7 @@ def staff_dashboard() -> str:
 
         # paginated fetch: include citizen info and estate address
         fetch_sql = f"""
-            SELECT a.*, e.id_sector, e.street, e.building_number, e.apartment_number, s.managing_company, c.first_name, c.last_name, c.email
+            SELECT a.*, e.id_sector, e.street, e.building_number, e.apartment_number, s.managing_company, s.company_address, s.company_hours, c.first_name, c.last_name, c.email
             FROM application a
             LEFT JOIN estate e ON a.id_estate = e.id_estate
             LEFT JOIN sector s ON e.id_sector = s.id_sector

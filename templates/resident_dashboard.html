@@ -115,19 +115,25 @@
                     <td>{{ a.bag_depart_date or '-' }}</td>
                     <td>{{ a.creation_date }}</td>
                     <td>
-                      <!-- actions: only print now -->
+                      <!-- actions: sector info + print -->
                       {% set att_names = '' %}
                       {% if atts and atts|length > 0 %}
                         {% set att_names = atts | map(attribute='file_name') | join('|||') %}
                       {% endif %}
+                        {% set is_enabled = (a.status == 'approved') %}
+                        <button class="btn btn-sm sector-info" type="button"
+                          data-sector-id="{{ a.id_sector or '' }}"
+                          data-managing-company="{{ a.managing_company or '-' }}"
+                          data-company-address="{{ a.company_address or '-' }}"
+                          data-company-hours="{{ a.company_hours or '-' }}"
+                          {% if not is_enabled %}disabled aria-disabled="true" data-disabled-reason="Sektor dostępny po zatwierdzeniu wniosku" class="btn btn-sm sector-info disabled"{% endif %}
+                          >Pobór worka</button>
                       <a class="btn btn-sm" href="{{ url_for('application_print', app_id=a.id_application) }}?autoprint=1" target="_blank" rel="noopener">Pobierz PDF</a>
                     </td>
                   </tr>
                   {% endfor %}
                 </tbody>
               </table>
-            </div>
-            {% else %}
             <p>Nie wysłałeś jeszcze żadnych wniosków.</p>
             {% endif %}
             <!-- smarter pagination controls -->
@@ -232,6 +238,25 @@
       </div>
     </div>
 
+    <!-- sector info modal -->
+    <div class="media-modal" id="sectorModal" aria-hidden="true">
+      <div class="media-modal__dialog" role="dialog" aria-modal="true">
+        <div class="media-modal__header">
+          <div class="media-modal__title" id="sectorModalTitle">Szczegóły sektora</div>
+          <button class="media-modal__close" id="sectorModalClose" aria-label="Zamknij">×</button>
+        </div>
+        <div class="media-modal__body" id="sectorModalBody" style="flex-direction: column;">
+          <p><strong>ID sektora:</strong> <span id="sectorId">-</span></p>
+          <p><strong>Firma zarządzająca:</strong> <span id="sectorCompany">-</span></p>
+          <p><strong>Adres firmy:</strong> <span id="sectorCompanyAddress">-</span></p>
+          <p><strong>Godziny otwarcia:</strong> <span id="sectorCompanyHours">-</span></p>
+        </div>
+        <div class="media-modal__actions">
+          <button class="btn" id="sectorModalCloseBtn">Zamknij</button>
+        </div>
+      </div>
+    </div>
+
     <script>
       (function(){
         const modal = document.getElementById('mediaModal');
@@ -327,6 +352,44 @@
         if(close) close.addEventListener('click', closePickup);
         if(closeBtn) closeBtn.addEventListener('click', closePickup);
         modal.addEventListener('click', (e)=>{ if(e.target === modal) closePickup(); });
+      })();
+    </script>
+    <script>
+      // sector modal handlers
+      (function(){
+        const modal = document.getElementById('sectorModal');
+        const close = document.getElementById('sectorModalClose');
+        const closeBtn = document.getElementById('sectorModalCloseBtn');
+
+        function openSector(btn){
+          document.getElementById('sectorId').textContent = btn.getAttribute('data-sector-id') || '-';
+          document.getElementById('sectorCompany').textContent = btn.getAttribute('data-managing-company') || '-';
+          document.getElementById('sectorCompanyAddress').textContent = btn.getAttribute('data-company-address') || '-';
+          document.getElementById('sectorCompanyHours').textContent = btn.getAttribute('data-company-hours') || '-';
+          modal.classList.add('is-open'); modal.setAttribute('aria-hidden','false');
+        }
+
+        function closeSector(){ modal.classList.remove('is-open'); modal.setAttribute('aria-hidden','true'); }
+
+        document.querySelectorAll('.sector-info').forEach(b => b.addEventListener('click',(e)=>{
+          if (b.disabled || b.getAttribute('aria-disabled') === 'true'){
+            const reason = b.getAttribute('data-disabled-reason') || 'Akcja niedostępna';
+            // show a non-blocking tooltip via title fallback or alert
+            if (typeof window.toastr !== 'undefined'){
+              window.toastr.info(reason);
+            } else {
+              // simple fallback: briefly show title tooltip
+              const prev = b.getAttribute('title');
+              b.setAttribute('title', reason);
+              setTimeout(()=>{ if(prev) b.setAttribute('title', prev); else b.removeAttribute('title'); }, 2500);
+            }
+            return;
+          }
+          openSector(b);
+        }));
+        if(close) close.addEventListener('click', closeSector);
+        if(closeBtn) closeBtn.addEventListener('click', closeSector);
+        modal.addEventListener('click', (e)=>{ if(e.target === modal) closeSector(); });
       })();
     </script>
     <script>
