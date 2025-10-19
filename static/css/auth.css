@@ -253,6 +253,11 @@ a {
   color: #9f1239;
   font-size: 0.78rem;
   font-weight: 700;
+  white-space: nowrap;
+}
+
+.bag-count {
+  white-space: nowrap;
 }
 
 .action-link { color: var(--accent); font-weight: 600; }
