@@ -114,7 +114,7 @@
             {% endif %}
 
             {% if total_pages and total_pages > 1 %}
-            <div style="display:flex; gap:0.5rem; align-items:center; justify-content:center; margin-top:0.75rem; flex-wrap:wrap;">
+            <div class="pagination-controls">
               {% set base_q = ('&q=' ~ q) if q else '' %}
               {% set base_status = ('&status=' ~ status_filter) if status_filter else '' %}
               {% if page > 1 %}
@@ -127,7 +127,7 @@
               {% set end = page + 2 if page + 2 < total_pages else total_pages %}
 
               {% if start > 1 %}
-                  <a class="btn" href="?page=1{{ base_status }}{{ base_q }}">1</a>
+                <a class="btn" href="?page=1{{ base_status }}{{ base_q }}">1</a>
                 {% if start > 2 %}
                   <span class="btn btn-secondary">…</span>
                 {% endif %}
