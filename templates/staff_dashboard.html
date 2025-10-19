@@ -33,7 +33,7 @@
                 <option value="declined" {% if status_filter == 'declined' %}selected{% endif %}>Odrzucony</option>
               </select>
               <label for="filter_q">Szukaj</label>
-              <input id="filter_q" name="q" type="search" placeholder="imię, nazwisko, ulica, email" value="{{ q or '' }}" />
+              <input id="filter_q" name="q" type="search" placeholder="imię, nazwisko, ulica, email, rok (YYYY) lub data (YYYY-MM-DD)" value="{{ q or '' }}" />
               <button class="btn btn-primary" type="submit">Filtruj</button>
             </form>
             {% if applications and applications|length > 0 %}
@@ -62,16 +62,13 @@
                     <td>
                       {% set atts = attachments_map.get(a.id_application) if attachments_map else None %}
                       {% if atts and atts|length > 0 %}
-                        <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <div style="display:flex; gap:0.5rem; align-items:center; justify-content:center;">
                           {% for att in atts %}
                             {% set src = url_for('serve_attachment', attachment_id=att.id_attachment) %}
-                            {% if att.file_type and att.file_type.startswith('image/') %}
-                              <button class="media-thumb" data-type="image" data-src="{{ src }}" data-name="{{ att.file_name }}" style="border:0; background:transparent; padding:0;">
-                                <img src="{{ src }}" alt="{{ att.file_name }}" style="height:48px; width:auto; border-radius:4px; display:block;" />
-                              </button>
-                            {% elif att.file_type == 'application/pdf' %}
-                              <button class="media-thumb" data-type="pdf" data-src="{{ src }}" data-name="{{ att.file_name }}" style="border:0; background:transparent; padding:0; color:var(--accent); font-weight:600;">
-                                📄 {{ att.file_name }}
+                            {% if att.file_type and (att.file_type.startswith('image/') or att.file_type == 'application/pdf') %}
+                              {# show filename only, preview in modal on click #}
+                              <button class="attachment-link" data-type="{{ 'image' if att.file_type.startswith('image/') else 'pdf' }}" data-src="{{ src }}" data-name="{{ att.file_name }}" style="border:0; background:transparent; padding:0; color:var(--accent); font-weight:600; text-decoration:underline; cursor:pointer;">
+                                {{ att.file_name }}
                               </button>
                             {% else %}
                               <a class="action-link" href="{{ url_for('attachment_view', attachment_id=att.id_attachment) }}" target="_blank" rel="noopener">{{ att.file_name }}</a>
@@ -130,7 +127,7 @@
               {% set end = page + 2 if page + 2 < total_pages else total_pages %}
 
               {% if start > 1 %}
-                <a class="btn" href="?page=1{{ base_status }}{{ base_q }}">1</a>
+                  <a class="btn" href="?page=1{{ base_status }}{{ base_q }}">1</a>
                 {% if start > 2 %}
                   <span class="btn btn-secondary">…</span>
                 {% endif %}
@@ -248,6 +245,34 @@
         modal.addEventListener('click', (e) => { if(e.target === modal) closeModal(); });
         document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeModal(); });
       })();
+      // attach handler to filename links that should open modal previews
+      document.querySelectorAll('.attachment-link').forEach(el=>{
+        el.addEventListener('click', (e)=>{
+          const type = el.getAttribute('data-type');
+          const src = el.getAttribute('data-src');
+          const name = el.getAttribute('data-name');
+          // reuse openModal from above
+          const openModalFn = (window.openModal || null);
+          if(typeof openModalFn === 'function'){
+            openModalFn(type, src, name);
+          } else {
+            // fallback: directly call the local openModal (scoped)
+            // create a small helper mirroring above
+            const modalLocal = document.getElementById('mediaModal');
+            const bodyLocal = document.getElementById('mediaModalBody');
+            const titleLocal = document.getElementById('mediaModalTitle');
+            const downloadLocal = document.getElementById('mediaDownload');
+            bodyLocal.innerHTML = '';
+            titleLocal.textContent = name || 'Podgląd';
+            if(type === 'image'){
+              const img = document.createElement('img'); img.src = src; img.alt = name || ''; img.style.maxWidth = '100%'; img.style.height = 'auto'; bodyLocal.appendChild(img); downloadLocal.href = src; downloadLocal.setAttribute('download', name || 'image');
+            } else if(type === 'pdf'){
+              const iframe = document.createElement('iframe'); iframe.src = src; iframe.style.width = '100%'; iframe.style.height = '80vh'; iframe.setAttribute('aria-label', name || 'PDF'); bodyLocal.appendChild(iframe); downloadLocal.href = src;
+            }
+            modalLocal.classList.add('is-open'); modalLocal.setAttribute('aria-hidden','false');
+          }
+        });
+      });
       function confirmDecision(form){
         const action = form.querySelector('input[name="action"]').value;
         const msg = action === 'approve' ? 'Czy na pewno zatwierdzić ten wniosek?' : 'Czy na pewno odrzucić ten wniosek?';

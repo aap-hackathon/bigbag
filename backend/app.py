@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from typing import Any
+import re
 import flask
 import flask_login
 import mysql.connector
@@ -359,12 +360,39 @@ def resident_dashboard() -> str:
         if status_filter:
             where_clauses.append("a.status = %s")
             params.append(status_filter)
+        # detect if q contains a year (YYYY) or a full date (YYYY-MM-DD)
+        q_year = None
+        q_date = None
         if q:
-            where_clauses.append(
-                "(e.street LIKE %s OR e.building_number LIKE %s OR e.apartment_number LIKE %s)"
-            )
-            likeq = f"%{q}%"
-            params.extend([likeq, likeq, likeq])
+            # try full date first
+            m_date = re.search(r"(\d{4}-\d{2}-\d{2})", q)
+            if m_date:
+                q_date = m_date.group(1)
+            else:
+                m_year = re.search(r"\b(20\d{2}|19\d{2})\b", q)
+                if m_year:
+                    q_year = m_year.group(1)
+
+            # the remaining q for free-text search (strip found date/year)
+            q_text = q
+            if q_date:
+                q_text = q.replace(q_date, " ").strip()
+            elif q_year:
+                q_text = re.sub(r"\b" + re.escape(q_year) + r"\b", " ", q_text).strip()
+
+            if q_text:
+                where_clauses.append(
+                    "(e.street LIKE %s OR e.building_number LIKE %s OR e.apartment_number LIKE %s)"
+                )
+                likeq = f"%{q_text}%"
+                params.extend([likeq, likeq, likeq])
+
+            if q_date:
+                where_clauses.append("DATE(a.creation_date) = %s")
+                params.append(q_date)
+            elif q_year:
+                where_clauses.append("YEAR(a.creation_date) = %s")
+                params.append(q_year)
 
         where_sql = " AND ".join(where_clauses)
 
@@ -532,13 +560,38 @@ def staff_dashboard() -> str:
         if status_filter:
             where_clauses.append("a.status = %s")
             params.append(status_filter)
+        # detect year or full-date in q
+        q_year = None
+        q_date = None
         if q:
-            # search in address and citizen fields
-            where_clauses.append(
-                "(e.street LIKE %s OR e.building_number LIKE %s OR e.apartment_number LIKE %s OR c.first_name LIKE %s OR c.last_name LIKE %s OR c.email LIKE %s)"
-            )
-            likeq = f"%{q}%"
-            params.extend([likeq, likeq, likeq, likeq, likeq, likeq])
+            m_date = re.search(r"(\d{4}-\d{2}-\d{2})", q)
+            if m_date:
+                q_date = m_date.group(1)
+            else:
+                m_year = re.search(r"\b(20\d{2}|19\d{2})\b", q)
+                if m_year:
+                    q_year = m_year.group(1)
+
+            q_text = q
+            if q_date:
+                q_text = q.replace(q_date, " ").strip()
+            elif q_year:
+                q_text = re.sub(r"\b" + re.escape(q_year) + r"\b", " ", q_text).strip()
+
+            if q_text:
+                # search in address and citizen fields
+                where_clauses.append(
+                    "(e.street LIKE %s OR e.building_number LIKE %s OR e.apartment_number LIKE %s OR c.first_name LIKE %s OR c.last_name LIKE %s OR c.email LIKE %s)"
+                )
+                likeq = f"%{q_text}%"
+                params.extend([likeq, likeq, likeq, likeq, likeq, likeq])
+
+            if q_date:
+                where_clauses.append("DATE(a.creation_date) = %s")
+                params.append(q_date)
+            elif q_year:
+                where_clauses.append("YEAR(a.creation_date) = %s")
+                params.append(q_year)
 
         where_sql = " AND ".join(where_clauses) if where_clauses else "1"
 
