@@ -387,6 +387,158 @@ def resident_dashboard() -> str:
         cur.execute(fetch_sql, fetch_params)
         applications = cur.fetchall()
 
+        # attach computed free/paid bag counts so staff can see which bags are paid
+        if applications:
+            try:
+                applications = [dict(a) for a in applications]
+            except Exception:
+                pass
+
+            sum_cur = db_connection.cursor(dictionary=True)
+            try:
+                for a in applications:
+                    estate_id = a.get("id_estate")
+                    creation = a.get("creation_date")
+                    app_id = a.get("id_application")
+                    bag_count = int(a.get("bag_count") or 0)
+
+                    sum_sql = (
+                        "SELECT COALESCE(SUM(bag_count),0) as prior_bags "
+                        "FROM application "
+                        "WHERE id_estate = %s AND YEAR(creation_date) = YEAR(%s) "
+                        "AND (creation_date < %s OR (creation_date = %s AND id_application < %s))"
+                    )
+                    sum_cur.execute(
+                        sum_sql,
+                        (estate_id, creation, creation, creation, app_id),
+                    )
+                    srow = sum_cur.fetchone()
+                    prior_bags = (
+                        srow["prior_bags"]
+                        if srow and "prior_bags" in srow
+                        else 0
+                    )
+
+                    free_remaining = max(0, 1 - int(prior_bags or 0))
+                    free_for_this = min(free_remaining, bag_count)
+                    paid_for_this = bag_count - free_for_this
+
+                    a["free_bags"] = free_for_this
+                    a["paid_bags"] = paid_for_this
+            finally:
+                sum_cur.close()
+
+        # ensure applications are plain dicts so templates can read computed keys
+        if applications:
+            try:
+                applications = [dict(a) for a in applications]
+            except Exception:
+                pass
+
+        # compute free/paid bags for staff view (one free bag per estate per calendar year)
+        if applications:
+            sum_cur = db_connection.cursor(dictionary=True)
+            try:
+                for a in applications:
+                    estate_id = a.get("id_estate")
+                    creation = a.get("creation_date")
+                    app_id = a.get("id_application")
+                    bag_count = int(a.get("bag_count") or 0)
+
+                    sum_sql = (
+                        "SELECT COALESCE(SUM(bag_count),0) as prior_bags "
+                        "FROM application "
+                        "WHERE id_estate = %s AND YEAR(creation_date) = YEAR(%s) "
+                        "AND (creation_date < %s OR (creation_date = %s AND id_application < %s))"
+                    )
+                    sum_cur.execute(
+                        sum_sql,
+                        (estate_id, creation, creation, creation, app_id),
+                    )
+                    srow = sum_cur.fetchone()
+                    prior_bags = (
+                        srow["prior_bags"]
+                        if srow and "prior_bags" in srow
+                        else 0
+                    )
+
+                    free_remaining = max(0, 1 - int(prior_bags or 0))
+                    free_for_this = min(free_remaining, bag_count)
+                    paid_for_this = bag_count - free_for_this
+
+                    a["free_bags"] = free_for_this
+                    a["paid_bags"] = paid_for_this
+            finally:
+                sum_cur.close()
+
+        # normalize rows to plain dicts so we can attach computed keys
+        if applications:
+            try:
+                applications = [dict(a) for a in applications]
+            except Exception:
+                # if conversion fails, keep original
+                pass
+
+        # Compute paid/free bags per application (one free bag per estate per calendar year)
+        if applications:
+            sum_cur = db_connection.cursor(dictionary=True)
+            try:
+                for a in applications:
+                    estate_id = (
+                        a.get("id_estate")
+                        if isinstance(a, dict)
+                        else a["id_estate"]
+                    )
+                    creation = (
+                        a.get("creation_date")
+                        if isinstance(a, dict)
+                        else a["creation_date"]
+                    )
+                    app_id = (
+                        a.get("id_application")
+                        if isinstance(a, dict)
+                        else a["id_application"]
+                    )
+                    bag_count = int(
+                        (
+                            a.get("bag_count")
+                            if isinstance(a, dict)
+                            else a["bag_count"]
+                        )
+                        or 0
+                    )
+
+                    sum_sql = (
+                        "SELECT COALESCE(SUM(bag_count),0) as prior_bags "
+                        "FROM application "
+                        "WHERE id_estate = %s AND YEAR(creation_date) = YEAR(%s) "
+                        "AND (creation_date < %s OR (creation_date = %s AND id_application < %s))"
+                    )
+                    sum_cur.execute(
+                        sum_sql,
+                        (estate_id, creation, creation, creation, app_id),
+                    )
+                    srow = sum_cur.fetchone()
+                    prior_bags = (
+                        srow["prior_bags"]
+                        if srow and "prior_bags" in srow
+                        else 0
+                    )
+
+                    free_remaining = max(0, 1 - int(prior_bags or 0))
+                    free_for_this = min(free_remaining, bag_count)
+                    paid_for_this = bag_count - free_for_this
+
+                    # attach values
+                    try:
+                        a["free_bags"] = free_for_this
+                        a["paid_bags"] = paid_for_this
+                    except Exception:
+                        # ignore if row type isn't mutable
+                        pass
+            finally:
+                sum_cur.close()
+
         # Compute paid/free bags per application (one free bag per estate per calendar year)
         if applications:
             sum_cur = db_connection.cursor(dictionary=True)
@@ -398,6 +550,50 @@ def resident_dashboard() -> str:
                         app_id = a.get("id_application")
                         bag_count = int(a.get("bag_count") or 0)
                     except Exception:
+                        # fallback defaults
+                        estate_id = a.get("id_estate")
+                        creation = a.get("creation_date")
+                        app_id = a.get("id_application")
+                        bag_count = a.get("bag_count") or 0
+
+                    sum_sql = (
+                        "SELECT COALESCE(SUM(bag_count),0) as prior_bags "
+                        "FROM application "
+                        "WHERE id_estate = %s AND YEAR(creation_date) = YEAR(%s) "
+                        "AND (creation_date < %s OR (creation_date = %s AND id_application < %s))"
+                    )
+                    sum_cur.execute(
+                        sum_sql,
+                        (estate_id, creation, creation, creation, app_id),
+                    )
+                    srow = sum_cur.fetchone()
+                    prior_bags = (
+                        srow["prior_bags"]
+                        if srow and "prior_bags" in srow
+                        else 0
+                    )
+
+                    free_remaining = max(0, 1 - int(prior_bags or 0))
+                    free_for_this = min(free_remaining, bag_count)
+                    paid_for_this = bag_count - free_for_this
+
+                    a["free_bags"] = free_for_this
+                    a["paid_bags"] = paid_for_this
+            finally:
+                sum_cur.close()
+
+        # Compute paid/free bags per application (one free bag per estate per calendar year)
+        if applications:
+            sum_cur = db_connection.cursor(dictionary=True)
+            try:
+                for a in applications:
+                    try:
+                        estate_id = a.get("id_estate")
+                        creation = a.get("creation_date")
+                        app_id = a.get("id_application")
+                        bag_count = int(a.get("bag_count") or 0)
+                    except Exception:
+                        # fallback defaults
                         estate_id = a.get("id_estate")
                         creation = a.get("creation_date")
                         app_id = a.get("id_application")
