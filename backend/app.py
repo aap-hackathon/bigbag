@@ -360,7 +360,9 @@ def resident_dashboard() -> str:
             where_clauses.append("a.status = %s")
             params.append(status_filter)
         if q:
-            where_clauses.append("(e.street LIKE %s OR e.building_number LIKE %s OR e.apartment_number LIKE %s)")
+            where_clauses.append(
+                "(e.street LIKE %s OR e.building_number LIKE %s OR e.apartment_number LIKE %s)"
+            )
             likeq = f"%{q}%"
             params.extend([likeq, likeq, likeq])
 
@@ -386,7 +388,9 @@ def resident_dashboard() -> str:
         applications = cur.fetchall()
 
         # fetch attachments for listed applications
-        app_ids = [a["id_application"] for a in applications] if applications else []
+        app_ids = (
+            [a["id_application"] for a in applications] if applications else []
+        )
         attachments_map = {}
         if app_ids:
             format_strings = ",".join(["%s"] * len(app_ids))
@@ -396,7 +400,9 @@ def resident_dashboard() -> str:
             )
             atts = cur.fetchall()
             for att in atts:
-                attachments_map.setdefault(att["id_application"], []).append(att)
+                attachments_map.setdefault(att["id_application"], []).append(
+                    att
+                )
     finally:
         cur.close()
 
@@ -411,6 +417,16 @@ def resident_dashboard() -> str:
         status_filter=status_filter,
         q=q,
     )
+    # Serve attachment bytes endpoint
+
+
+@app.route("/attachment/<int:attachment_id>")
+@flask_login.login_required
+def serve_attachment(attachment_id: int):
+    """Return raw attachment bytes with authorization checks."""
+    cur = db_connection.cursor(dictionary=True)
+    try:
+        cur.execute(
             """
             SELECT att.file_name, att.file_type, att.file_data, app.id_citizen
             FROM attachment att
@@ -505,25 +521,45 @@ def staff_dashboard() -> str:
     per_page = 25
     offset = (page - 1) * per_page
 
+    # filters
+    status_filter = flask.request.args.get("status")
+    q = flask.request.args.get("q", "").strip()
+
     cur = db_connection.cursor(dictionary=True)
     try:
+        where_clauses = []
+        params = []
+        if status_filter:
+            where_clauses.append("a.status = %s")
+            params.append(status_filter)
+        if q:
+            # search in address and citizen fields
+            where_clauses.append(
+                "(e.street LIKE %s OR e.building_number LIKE %s OR e.apartment_number LIKE %s OR c.first_name LIKE %s OR c.last_name LIKE %s OR c.email LIKE %s)"
+            )
+            likeq = f"%{q}%"
+            params.extend([likeq, likeq, likeq, likeq, likeq, likeq])
+
+        where_sql = " AND ".join(where_clauses) if where_clauses else "1"
+
         # total count
-        cur.execute("SELECT COUNT(*) as cnt FROM application")
+        count_sql = f"SELECT COUNT(*) as cnt FROM application a LEFT JOIN estate e ON a.id_estate = e.id_estate LEFT JOIN citizen c ON a.id_citizen = c.id_citizen WHERE {where_sql}"
+        cur.execute(count_sql, tuple(params))
         row = cur.fetchone()
         total = row["cnt"] if row and "cnt" in row else 0
 
         # paginated fetch: include citizen info and estate address
-        cur.execute(
-            """
+        fetch_sql = f"""
             SELECT a.*, e.street, e.building_number, e.apartment_number, c.first_name, c.last_name, c.email
             FROM application a
             LEFT JOIN estate e ON a.id_estate = e.id_estate
             LEFT JOIN citizen c ON a.id_citizen = c.id_citizen
+            WHERE {where_sql}
             ORDER BY a.creation_date DESC
             LIMIT %s OFFSET %s
-            """,
-            (per_page, offset),
-        )
+            """
+        fetch_params = tuple(params + [per_page, offset])
+        cur.execute(fetch_sql, fetch_params)
         applications = cur.fetchall()
 
         # fetch attachments for the listed applications
@@ -553,6 +589,8 @@ def staff_dashboard() -> str:
         attachments_map=attachments_map,
         page=page,
         total_pages=total_pages,
+        status_filter=status_filter,
+        q=q,
     )
 
 
