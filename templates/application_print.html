@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Wniosek {{ application.id_application }} — druk</title>
+    <style>
+      body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; color: #0b1720; padding: 1.25rem; }
+      .sheet { max-width: 800px; margin: 0 auto; border: 1px solid #e6e6e6; padding: 1rem 1.25rem; }
+      h1 { font-size: 1.25rem; margin-bottom: 0.5rem; }
+      .section { margin-bottom: 0.75rem; }
+      .row { display:flex; gap:1rem; margin-bottom:0.25rem; }
+      .label { width:180px; font-weight:700; }
+      .value { flex:1; }
+      @media print {
+        .no-print { display:none; }
+        body { padding: 0; }
+        .sheet { border: none; margin: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sheet">
+      <div class="no-print" style="text-align:right; margin-bottom:0.5rem;">
+        <button onclick="window.print()">Drukuj</button>
+      </div>
+
+      <h1>Wniosek nr {{ application.id_application }}</h1>
+
+      <div class="section">
+        <h2>Dane wnioskodawcy</h2>
+        <div class="row"><div class="label">ID</div><div class="value">{{ application.id_citizen }}</div></div>
+        <div class="row"><div class="label">Imię</div><div class="value">{{ application.first_name }}</div></div>
+        <div class="row"><div class="label">Nazwisko</div><div class="value">{{ application.last_name }}</div></div>
+        <div class="row"><div class="label">PESEL</div><div class="value">{{ application.pesel }}</div></div>
+        <div class="row"><div class="label">E-mail</div><div class="value">{{ application.email }}</div></div>
+        <div class="row"><div class="label">Telefon</div><div class="value">{{ application.phone_number }}</div></div>
+        <div class="row"><div class="label">Data urodzenia</div><div class="value">{{ application.birth_date }}</div></div>
+        <div class="row"><div class="label">Adres</div><div class="value">{{ application.reg_address }}</div></div>
+        <div class="row"><div class="label">NIP</div><div class="value">{{ application.nip }}</div></div>
+      </div>
+
+      <div class="section">
+        <h2>Dane wniosku</h2>
+        <div class="row"><div class="label">Status</div><div class="value">
+            {% if application.status == 'awaiting' %}
+                {% set status_label = 'Oczekujący' %}
+            {% elif application.status == 'in_progress' %}
+                {% set status_label = 'W trakcie' %}
+            {% elif application.status == 'approved' %}
+                {% set status_label = 'Zatwierdzony' %}
+            {% elif application.status == 'declined' %}
+                {% set status_label = 'Odrzucony' %}
+            {% else %}
+                {% set status_label = application.status %}
+            {% endif %}
+            {{ status_label }}
+        </div></div>
+        <div class="row"><div class="label">Liczba worków</div><div class="value">{{ application.bag_count }}</div></div>
+        <div class="row"><div class="label">Data dostarczenia</div><div class="value">{{ application.bag_arrival_date or '-' }}</div></div>
+        <div class="row"><div class="label">Data odbioru</div><div class="value">{{ application.bag_depart_date or '-' }}</div></div>
+        <div class="row"><div class="label">Notatki</div><div class="value">{{ application.notes or '-' }}</div></div>
+        <div class="row"><div class="label">Utworzono</div><div class="value">{{ application.creation_date }}</div></div>
+      </div>
+
+      <div class="section">
+        <h2>Adres nieruchomości</h2>
+        <div class="row"><div class="label">Ulica</div><div class="value">{{ application.street }}</div></div>
+        <div class="row"><div class="label">Numer budynku / lokalu</div><div class="value">{{ application.building_number }}{% if application.apartment_number %}/{{ application.apartment_number }}{% endif %}</div></div>
+      </div>
+
+      <div style="margin-top:1rem; text-align:right; font-size:0.9rem; color:#666;">Wersja do druku — PłockiBigBag.pl</div>
+    </div>
+
+    <script>
+      // auto-print if autoprint=1 param present
+      (function(){
+        const params = new URLSearchParams(location.search);
+        if(params.get('autoprint') === '1'){
+          setTimeout(()=> window.print(), 300);
+        }
+      })();
+    </script>
+  </body>
+</html>

@@ -222,7 +222,7 @@ def login_staff() -> str:
             flask.session["user_type"] = "employee"
             flask_login.login_user(user)
             print(f"Zalogowano urzędnika: {user}")
-            return flask.redirect(flask.url_for("index"))
+            return flask.redirect(flask.url_for("staff_dashboard"))
         else:
             return flask.render_template(
                 "login_staff.html", error="Nieprawidłowy e-mail lub hasło."
@@ -1143,6 +1143,47 @@ def decide_application(app_id: int):
             flask.url_for("staff_dashboard") + f"?page={page}"
         )
     return flask.redirect(flask.url_for("staff_dashboard"))
+
+
+@app.route("/application/<int:app_id>/print")
+@flask_login.login_required
+def application_print(app_id: int):
+    """Render a printer-friendly page for an application.
+
+    Employees may print any application. Citizens may print only their
+    own application (match on id_citizen).
+    """
+    cur = db_connection.cursor(dictionary=True)
+    try:
+        cur.execute(
+            "SELECT a.*, e.street, e.building_number, e.apartment_number, c.* FROM application a LEFT JOIN estate e ON a.id_estate = e.id_estate LEFT JOIN citizen c ON a.id_citizen = c.id_citizen WHERE a.id_application = %s",
+            (app_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            return flask.abort(404)
+
+        # if current user is a citizen, ensure they own this application
+        if flask_login.current_user.type == "citizen":
+            try:
+                cur_user_id = int(flask_login.current_user.get_id())
+            except Exception:
+                return flask.abort(403)
+            # row['id_citizen'] may be None or string/number; normalize to int when possible
+            try:
+                owner_id = int(row.get("id_citizen") or -1)
+            except Exception:
+                owner_id = -1
+            if owner_id != cur_user_id:
+                return flask.abort(403)
+
+        # prepare a clean dict for template
+        app_data = dict(row)
+        return flask.render_template(
+            "application_print.html", application=app_data
+        )
+    finally:
+        cur.close()
 
 
 if __name__ == "__main__":

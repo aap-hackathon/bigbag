@@ -108,7 +108,8 @@
                     <td>{{ a.bag_depart_date or '-' }}</td>
                     <td>{{ a.creation_date }}</td>
                     <td>
-                      <div style="display:flex; gap:0.4rem;">
+                      <div style="display:flex; gap:0.4rem; align-items:center;">
+                        <a class="btn" href="{{ url_for('application_print', app_id=a.id_application) }}?autoprint=1" target="_blank" rel="noopener">Drukuj</a>
                         <button class="btn btn-primary ajax-decision" data-app-id="{{ a.id_application }}" data-action="approve">Zatwierdź</button>
                         <button class="btn btn-secondary ajax-decision" data-app-id="{{ a.id_application }}" data-action="decline">Odrzuć</button>
                       </div>

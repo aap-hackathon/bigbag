@@ -123,7 +123,7 @@
                       {% if atts and atts|length > 0 %}
                         {% set att_names = atts | map(attribute='file_name') | join('|||') %}
                       {% endif %}
-                      <button class="btn btn-sm" data-action="print" data-id="{{ a.id_application }}" data-first-name="{{ a.first_name or current_user.first_name or '' }}" data-last-name="{{ a.last_name or current_user.last_name or '' }}" data-street="{{ a.street }}" data-building="{{ a.building_number }}" data-apartment="{{ a.apartment_number or '' }}" data-bag-count="{{ a.bag_count or '' }}" data-status="{{ a.status }}" data-attachments="{{ att_names }}">Drukuj</button>
+                      <a class="btn btn-sm" href="{{ url_for('application_print', app_id=a.id_application) }}?autoprint=1" target="_blank" rel="noopener">Drukuj</a>
                     </td>
                   </tr>
                   {% endfor %}
@@ -307,43 +307,6 @@
           </body></html>`;
         }
 
-        const STATUS_MAP = {
-          'awaiting': 'Oczekujący',
-          'in_progress': 'W trakcie',
-          'approved': 'Zatwierdzony',
-          'declined': 'Odrzucony'
-        };
-
-        document.querySelectorAll('button[data-action="print"]').forEach(btn=>{
-          btn.addEventListener('click', function(e){
-            e.preventDefault();
-            const id = btn.getAttribute('data-id');
-            const rawAtt = btn.getAttribute('data-attachments') || '';
-            const attachments = rawAtt ? rawAtt.split('|||').filter(Boolean) : [];
-            const firstName = btn.getAttribute('data-first-name') || '';
-            const lastName = btn.getAttribute('data-last-name') || '';
-            const data = {
-              id: id,
-              first_name: firstName,
-              last_name: lastName,
-              full_name: (firstName + (lastName ? (' ' + lastName) : '')).trim(),
-              street: btn.getAttribute('data-street') || '',
-              building: btn.getAttribute('data-building') || '',
-              apartment: btn.getAttribute('data-apartment') || '',
-              bag_count: btn.getAttribute('data-bag-count') || '',
-              status: STATUS_MAP[btn.getAttribute('data-status')] || btn.getAttribute('data-status') || '',
-              attachments: attachments
-            };
-
-            const w = window.open('', '_blank');
-            if(!w) { alert('Pop-up zablokowany — odblokuj, aby wydrukować potwierdzenie'); return }
-            w.document.open();
-            w.document.write(buildHtml(data));
-            w.document.close();
-            // Wait briefly for resources to load then print
-            setTimeout(()=>{ w.focus(); w.print(); }, 400);
-          });
-        });
       })();
     </script>
   </body>
