@@ -2,6 +2,9 @@
 import flask
 import flask_login
 import mysql.connector
+import os
+import xml.etree.ElementTree as ET
+from datetime import datetime
 
 app: flask.Flask = flask.Flask(
     __name__, template_folder="../templates", static_folder="../static"
@@ -162,6 +165,157 @@ def get_db_connection() -> mysql.connector.connection.MySQLConnection:
         host="localhost", user="root", password="", database="bigbag"
     )
     return connection
+
+
+### XML export helpers (per-sector files)
+XML_OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "xml")
+
+
+def _ensure_xml_dir():
+    try:
+        os.makedirs(XML_OUT_DIR, exist_ok=True)
+    except Exception:
+        # best-effort
+        pass
+
+
+def _sector_file_path(sector_id: int) -> str:
+    _ensure_xml_dir()
+    filename = f"sector_{sector_id}.xml"
+    return os.path.join(XML_OUT_DIR, filename)
+
+
+def _application_element_from_row(row: dict, attachments: list) -> ET.Element:
+    app = ET.Element("application")
+    app.set("id", str(row.get("id_application") or ""))
+    # metadata attributes
+    if row.get("creation_date"):
+        app.set("created", str(row.get("creation_date")))
+    # basic fields
+    def sub(tag, text):
+        el = ET.SubElement(app, tag)
+        el.text = "" if text is None else str(text)
+        return el
+
+    # applicant (include extra fields: pesel, nip, reg_address, phone_number, birth_date, email)
+    applicant = ET.SubElement(app, "applicant")
+    for t in ("first_name", "last_name", "email", "phone_number", "pesel", "nip", "reg_address", "birth_date"):
+        v = row.get(t)
+        el = ET.SubElement(applicant, t)
+        el.text = "" if v is None else str(v)
+
+    # estate
+    estate = ET.SubElement(app, "estate")
+    for t in ("street", "building_number", "apartment_number", "postal_code", "city", "id_estate", "id_sector"):
+        v = row.get(t)
+        el = ET.SubElement(estate, t)
+        el.text = "" if v is None else str(v)
+
+    # application details
+    sub("bag_count", row.get("bag_count") or 0)
+    sub("free_bags", row.get("free_bags") if row.get("free_bags") is not None else 0)
+    sub("paid_bags", row.get("paid_bags") if row.get("paid_bags") is not None else 0)
+    sub("bag_arrival_date", row.get("bag_arrival_date") or "")
+    sub("bag_depart_date", row.get("bag_depart_date") or "")
+    sub("status", row.get("status") or "")
+    sub("notes", row.get("notes") or "")
+
+    # attachments
+    atts_el = ET.SubElement(app, "attachments")
+    for att in attachments:
+        ael = ET.SubElement(atts_el, "attachment")
+        ael.set("id", str(att.get("id_attachment")))
+        fn = ET.SubElement(ael, "file_name")
+        fn.text = att.get("file_name") or ""
+        ft = ET.SubElement(ael, "file_type")
+        ft.text = att.get("file_type") or ""
+        # include download URL relative to the app
+        dl = ET.SubElement(ael, "download_url")
+        dl.text = f"/attachment/{att.get('id_attachment')}" if att.get("id_attachment") else ""
+
+    return app
+
+
+def _write_sector_application(row: dict, attachments: list):
+    """Write or update application element in sector XML file."""
+    sector_id = row.get("id_sector") or 0
+    path = _sector_file_path(sector_id)
+
+    # load or create root
+    if os.path.exists(path):
+        try:
+            tree = ET.parse(path)
+            root = tree.getroot()
+        except Exception:
+            # corrupt file? start fresh
+            root = ET.Element("applications")
+            tree = ET.ElementTree(root)
+    else:
+        root = ET.Element("applications")
+        tree = ET.ElementTree(root)
+
+    app_id = str(row.get("id_application"))
+    # find existing element
+    existing = None
+    for el in root.findall("application"):
+        if el.get("id") == app_id:
+            existing = el
+            break
+
+    new_el = _application_element_from_row(row, attachments)
+
+    if existing is not None:
+        # replace existing element
+        root.remove(existing)
+    root.append(new_el)
+
+    # write atomically
+    tmp = path + ".tmp"
+    try:
+        tree.write(tmp, encoding="utf-8", xml_declaration=True)
+        os.replace(tmp, path)
+    except Exception:
+        try:
+            tree.write(path, encoding="utf-8", xml_declaration=True)
+        except Exception:
+            pass
+
+
+def _mark_application_revoked(app_id: int):
+    """Mark the application as revoked in any sector XML file where it exists."""
+    _ensure_xml_dir()
+    # scan files in XML_OUT_DIR
+    for fname in os.listdir(XML_OUT_DIR):
+        if not fname.endswith(".xml"):
+            continue
+        path = os.path.join(XML_OUT_DIR, fname)
+        try:
+            tree = ET.parse(path)
+            root = tree.getroot()
+        except Exception:
+            continue
+
+        changed = False
+        for el in root.findall("application"):
+            if el.get("id") == str(app_id):
+                # set attribute revoked and add revoked child with timestamp
+                if el.get("revoked") == "true":
+                    continue
+                el.set("revoked", "true")
+                rev = ET.SubElement(el, "revoked_at")
+                rev.text = datetime.utcnow().isoformat()
+                changed = True
+
+        if changed:
+            tmp = path + ".tmp"
+            try:
+                tree.write(tmp, encoding="utf-8", xml_declaration=True)
+                os.replace(tmp, path)
+            except Exception:
+                try:
+                    tree.write(path, encoding="utf-8", xml_declaration=True)
+                except Exception:
+                    pass
 
 
 @app.route("/")
@@ -1134,6 +1288,37 @@ def decide_application(app_id: int):
             (new_status, app_id),
         )
         db_connection.commit()
+        # after successful update, export to per-sector XML or mark revoked
+        try:
+            cur3 = db_connection.cursor(dictionary=True)
+            try:
+                cur3.execute(
+                    "SELECT a.*, e.id_sector, e.street, e.building_number, e.apartment_number, c.* FROM application a LEFT JOIN estate e ON a.id_estate = e.id_estate LEFT JOIN citizen c ON a.id_citizen = c.id_citizen WHERE a.id_application = %s",
+                    (app_id,),
+                )
+                row = cur3.fetchone()
+                # fetch attachments
+                cur3.execute(
+                    "SELECT id_attachment, id_application, file_name, file_type FROM attachment WHERE id_application = %s",
+                    (app_id,),
+                )
+                atts = cur3.fetchall()
+                if row:
+                    if new_status == 'approved':
+                        try:
+                            _write_sector_application(row, atts or [])
+                        except Exception as e:
+                            print("XML write error:", e)
+                    else:
+                        try:
+                            _mark_application_revoked(app_id)
+                        except Exception as e:
+                            print("XML revoke error:", e)
+            finally:
+                cur3.close()
+        except Exception:
+            # ignore xml export errors for now
+            pass
     except mysql.connector.Error as err:
         print("Error updating application status:", err)
         if flask.request.headers.get("X-Requested-With") == "XMLHttpRequest":
