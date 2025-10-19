@@ -13,54 +13,26 @@ app.secret_key = "wielkiedildo33cm"
 
 
 def compute_free_paid(applications):
-    """Compute free_bags and paid_bags for each application in the list.
-
-    Rule: one free bag per estate per calendar year. For each application we
-    count prior bags in the same estate and year (strictly earlier by date or
-    by id if same timestamp) and allocate up to 1 free bag in total per estate
-    per year; remaining bags are paid.
-    This mutates the dicts in-place (sets 'free_bags' and 'paid_bags').
-    """
+    """Compute free_bags and paid_bags for each application in the list."""
     if not applications:
+        print("compute_free_paid: no applications provided")
         return
 
     # nothing to do here; we'll mutate or replace elements in-place
-    sum_cur = db_connection.cursor(dictionary=True)
-    try:
-        # iterate by index so we can replace non-dict rows with dicts
-        for idx, orig in enumerate(applications):
-            # work on a mutable dict copy or the original dict
-            if isinstance(orig, dict):
-                a = orig
-            else:
-                try:
-                    a = dict(orig)
-                except Exception:
-                    # fallback to a minimal dict view
-                    a = {
-                        "id_estate": getattr(orig, "id_estate", None),
-                        "creation_date": getattr(orig, "creation_date", None),
-                        "id_application": getattr(
-                            orig, "id_application", None
-                        ),
-                        "bag_count": getattr(orig, "bag_count", 0),
-                    }
+    if applications:
+        try:
+            applications = [dict(a) for a in applications]
+        except Exception:
+            pass
 
-            try:
+        sum_cur = db_connection.cursor(dictionary=True)
+        try:
+            for a in applications:
                 estate_id = a.get("id_estate")
                 creation = a.get("creation_date")
                 app_id = a.get("id_application")
                 bag_count = int(a.get("bag_count") or 0)
-            except Exception:
-                estate_id = None
-                creation = None
-                app_id = None
-                bag_count = 0
 
-            if not estate_id or not creation:
-                a["free_bags"] = 0
-                a["paid_bags"] = bag_count
-            else:
                 sum_sql = (
                     "SELECT COALESCE(SUM(bag_count),0) as prior_bags "
                     "FROM application "
@@ -68,7 +40,8 @@ def compute_free_paid(applications):
                     "AND (creation_date < %s OR (creation_date = %s AND id_application < %s))"
                 )
                 sum_cur.execute(
-                    sum_sql, (estate_id, creation, creation, creation, app_id)
+                    sum_sql,
+                    (estate_id, creation, creation, creation, app_id),
                 )
                 srow = sum_cur.fetchone()
                 prior_bags = (
@@ -81,12 +54,9 @@ def compute_free_paid(applications):
 
                 a["free_bags"] = free_for_this
                 a["paid_bags"] = paid_for_this
-
-            # ensure the caller's list contains the mutated dict so callers see values
-            if not isinstance(orig, dict):
-                applications[idx] = a
-    finally:
-        sum_cur.close()
+                print(free_for_this, paid_for_this)
+        finally:
+            sum_cur.close()
 
 
 class User(flask_login.UserMixin):
@@ -191,6 +161,7 @@ def _application_element_from_row(row: dict, attachments: list) -> ET.Element:
     # metadata attributes
     if row.get("creation_date"):
         app.set("created", str(row.get("creation_date")))
+
     # basic fields
     def sub(tag, text):
         el = ET.SubElement(app, tag)
@@ -199,22 +170,82 @@ def _application_element_from_row(row: dict, attachments: list) -> ET.Element:
 
     # applicant (include extra fields: pesel, nip, reg_address, phone_number, birth_date, email)
     applicant = ET.SubElement(app, "applicant")
-    for t in ("first_name", "last_name", "email", "phone_number", "pesel", "nip", "reg_address", "birth_date"):
+    for t in (
+        "first_name",
+        "last_name",
+        "email",
+        "phone_number",
+        "pesel",
+        "nip",
+        "reg_address",
+        "birth_date",
+    ):
         v = row.get(t)
         el = ET.SubElement(applicant, t)
         el.text = "" if v is None else str(v)
 
     # estate
     estate = ET.SubElement(app, "estate")
-    for t in ("street", "building_number", "apartment_number", "postal_code", "city", "id_estate", "id_sector"):
+    for t in (
+        "street",
+        "building_number",
+        "apartment_number",
+        "postal_code",
+        "city",
+        "id_estate",
+        "id_sector",
+    ):
         v = row.get(t)
         el = ET.SubElement(estate, t)
         el.text = "" if v is None else str(v)
 
     # application details
     sub("bag_count", row.get("bag_count") or 0)
-    sub("free_bags", row.get("free_bags") if row.get("free_bags") is not None else 0)
-    sub("paid_bags", row.get("paid_bags") if row.get("paid_bags") is not None else 0)
+    try:
+        sum_cur = db_connection.cursor(dictionary=True)
+        try:
+            estate_id = row.get("id_estate")
+            creation = row.get("creation_date")
+            app_id = row.get("id_application")
+            bag_count = int(row.get("bag_count") or 0)
+
+            sum_sql = (
+                "SELECT COALESCE(SUM(bag_count),0) as prior_bags "
+                "FROM application "
+                "WHERE id_estate = %s AND YEAR(creation_date) = YEAR(%s) "
+                "AND (creation_date < %s OR (creation_date = %s AND id_application < %s))"
+            )
+            sum_cur.execute(
+                sum_sql, (estate_id, creation, creation, creation, app_id)
+            )
+            srow = sum_cur.fetchone()
+            prior_bags = (
+                srow["prior_bags"] if srow and "prior_bags" in srow else 0
+            )
+
+            free_remaining = max(0, 1 - int(prior_bags or 0))
+            free_for_this = min(free_remaining, bag_count)
+            paid_for_this = bag_count - free_for_this
+
+            row["free_bags"] = free_for_this
+            row["paid_bags"] = paid_for_this
+        finally:
+            sum_cur.close()
+    except Exception:
+        # best-effort fallback if DB not available or something fails
+        row["free_bags"] = 0
+        try:
+            row["paid_bags"] = int(row.get("bag_count") or 0)
+        except Exception:
+            row["paid_bags"] = 0
+    sub(
+        "free_bags",
+        row.get("free_bags") if row.get("free_bags") is not None else 0,
+    )
+    sub(
+        "paid_bags",
+        row.get("paid_bags") if row.get("paid_bags") is not None else 0,
+    )
     sub("bag_arrival_date", row.get("bag_arrival_date") or "")
     sub("bag_depart_date", row.get("bag_depart_date") or "")
     sub("status", row.get("status") or "")
@@ -231,7 +262,11 @@ def _application_element_from_row(row: dict, attachments: list) -> ET.Element:
         ft.text = att.get("file_type") or ""
         # include download URL relative to the app
         dl = ET.SubElement(ael, "download_url")
-        dl.text = f"/attachment/{att.get('id_attachment')}" if att.get("id_attachment") else ""
+        dl.text = (
+            f"/attachment/{att.get('id_attachment')}"
+            if att.get("id_attachment")
+            else ""
+        )
 
     return app
 
@@ -663,6 +698,7 @@ def resident_dashboard() -> str:
 
                     a["free_bags"] = free_for_this
                     a["paid_bags"] = paid_for_this
+                    print(free_for_this, paid_for_this)
             finally:
                 sum_cur.close()
 
@@ -1304,7 +1340,7 @@ def decide_application(app_id: int):
                 )
                 atts = cur3.fetchall()
                 if row:
-                    if new_status == 'approved':
+                    if new_status == "approved":
                         try:
                             _write_sector_application(row, atts or [])
                         except Exception as e:
