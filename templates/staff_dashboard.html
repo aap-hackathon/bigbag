@@ -111,7 +111,7 @@
                         {% if atts and atts|length > 0 %}
                           {% set att_names = atts | map(attribute='file_name') | join('|||') %}
                         {% endif %}
-                        <button class="btn btn-sm pickup-info"
+                        <!-- <button class="btn btn-sm pickup-info"
                           data-street="{{ a.street }}"
                           data-building="{{ a.building_number }}"
                           data-apartment="{{ a.apartment_number or '' }}"
@@ -120,7 +120,7 @@
                           data-depart="{{ a.bag_depart_date or '' }}"
                           data-notes="{{ a.notes | e }}"
                           data-attachments="{{ att_names }}"
-                        >Informacje o pobiorze</button>
+                        >Informacje o pobiorze</button> -->
                         <a class="btn" href="{{ url_for('application_print', app_id=a.id_application) }}?autoprint=1" target="_blank" rel="noopener">Pobierz PDF</a>
                         <button class="btn btn-primary ajax-decision" data-app-id="{{ a.id_application }}" data-action="approve">Zatwierdź</button>
                         <button class="btn btn-secondary ajax-decision" data-app-id="{{ a.id_application }}" data-action="decline">Odrzuć</button>
