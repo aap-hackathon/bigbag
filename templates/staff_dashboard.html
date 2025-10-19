@@ -3,15 +3,9 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Panel mieszkańca — BigBag</title>
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='css/base.css') }}"
-    />
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='css/auth.css') }}"
-    />
+    <title>Panel urzędnika — BigBag</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}" />
   </head>
   <body>
     <header class="site-header">
@@ -24,36 +18,18 @@
       <div class="auth-container">
         <div class="auth-card" role="main">
           <div id="dashboard-header">
-            <h1>Witaj w panelu mieszkańca, {{ current_user.first_name }}!</h1>
+            <h1>Panel urzędnika</h1>
           </div>
-          <p class="lead">
-            Z tego miejsca możesz wysłać nowy wniosek lub zobaczyć listę swoich
-            zgłoszeń.
-          </p>
+          <p class="lead">Lista wszystkich wniosków</p>
 
-          <div
-            style="
-              display: flex;
-              flex-direction: column;
-              gap: 1rem;
-              align-items: center;
-              margin-top: 1.5rem;
-            "
-          >
-            <a class="btn btn-primary" href="{{ url_for('application_form') }}"
-              >Wyślij nowy wniosek</a
-            >
-          </div>
-
-          <!-- Applications table -->
           <div style="margin-top: 1.5rem; width: 100%">
-            <h2>Twoje wnioski</h2>
             {% if applications and applications|length > 0 %}
             <div class="table-responsive">
               <table class="table">
                 <thead>
                   <tr>
                     <th>ID</th>
+                    <th>Wnioskodawca</th>
                     <th>Adres</th>
                     <th>Załącznik</th>
                     <th>Status</th>
@@ -68,9 +44,8 @@
                   {% for a in applications %}
                   <tr>
                     <td>{{ a.id_application }}</td>
-                    <td>
-                      ul. {{ a.street }} {{ a.building_number }}{% if a.apartment_number %}/{{ a.apartment_number }}{% endif %}
-                    </td>
+                    <td>{{ a.first_name }} {{ a.last_name }}<br/><small>{{ a.email }}</small></td>
+                    <td>ul. {{ a.street }} {{ a.building_number }}{% if a.apartment_number %}/{{ a.apartment_number }}{% endif %}</td>
                     <td>
                       {% set atts = attachments_map.get(a.id_application) if attachments_map else None %}
                       {% if atts and atts|length > 0 %}
@@ -114,8 +89,10 @@
                     <td>{{ a.bag_depart_date or '-' }}</td>
                     <td>{{ a.creation_date }}</td>
                     <td>
-                      <!-- placeholder for actions -->
-                      <a class="action-link" href="#">Pokaż</a>
+                      <div style="display:flex; gap:0.4rem;">
+                        <button class="btn btn-primary ajax-decision" data-app-id="{{ a.id_application }}" data-action="approve">Zatwierdź</button>
+                        <button class="btn btn-secondary ajax-decision" data-app-id="{{ a.id_application }}" data-action="decline">Odrzuć</button>
+                      </div>
                     </td>
                   </tr>
                   {% endfor %}
@@ -123,9 +100,9 @@
               </table>
             </div>
             {% else %}
-            <p>Nie wysłałeś jeszcze żadnych wniosków.</p>
+            <p>Brak wniosków.</p>
             {% endif %}
-            <!-- smarter pagination controls -->
+
             {% if total_pages and total_pages > 1 %}
             <div style="display:flex; gap:0.5rem; align-items:center; justify-content:center; margin-top:0.75rem; flex-wrap:wrap;">
               {% if page > 1 %}
@@ -177,24 +154,20 @@
 
 
           <div style="margin-top: 1.25rem; text-align: center">
-            <a class="action-link" href="{{ url_for('index') }}"
-              >Powrót do strony głównej</a
-            >
+            <a class="action-link" href="{{ url_for('index') }}">Powrót do strony głównej</a>
           </div>
         </div>
       </div>
     </main>
 
-    <!-- Modal for media preview -->
+    <!-- include the same modal markup and script as resident dashboard -->
     <div class="media-modal" id="mediaModal" aria-hidden="true">
       <div class="media-modal__dialog" role="dialog" aria-modal="true">
         <div class="media-modal__header">
           <div class="media-modal__title" id="mediaModalTitle">Podgląd</div>
           <button class="media-modal__close" id="mediaModalClose" aria-label="Zamknij">×</button>
         </div>
-        <div class="media-modal__body" id="mediaModalBody">
-          <!-- dynamic content: img or iframe -->
-        </div>
+        <div class="media-modal__body" id="mediaModalBody"></div>
         <div class="media-modal__actions">
           <a class="btn btn-secondary" id="mediaDownload" href="#">Pobierz</a>
           <button class="btn" id="mediaCloseBtn">Zamknij</button>
@@ -258,6 +231,48 @@
         modal.addEventListener('click', (e) => { if(e.target === modal) closeModal(); });
         document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeModal(); });
       })();
+      function confirmDecision(form){
+        const action = form.querySelector('input[name="action"]').value;
+        const msg = action === 'approve' ? 'Czy na pewno zatwierdzić ten wniosek?' : 'Czy na pewno odrzucić ten wniosek?';
+        return confirm(msg);
+      }
+      // AJAX decision handler
+      document.querySelectorAll('.ajax-decision').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const action = btn.getAttribute('data-action');
+          const appId = btn.getAttribute('data-app-id');
+          const msg = action === 'approve' ? 'Czy na pewno zatwierdzić ten wniosek?' : 'Czy na pewno odrzucić ten wniosek?';
+          if(!confirm(msg)) return;
+
+          try{
+            const form = new FormData();
+            form.append('action', action);
+            const res = await fetch(`{{ url_for('decide_application', app_id=0) }}`.replace('/0/', `/${appId}/`), {
+              method: 'POST',
+              headers: { 'X-Requested-With': 'XMLHttpRequest' },
+              body: form,
+            });
+            if(!res.ok){
+              const data = await res.json().catch(()=>({}));
+              alert('Błąd: ' + (data.error || res.statusText));
+              return;
+            }
+            const data = await res.json();
+            if(data.ok){
+              // update status badge in the row
+              const row = btn.closest('tr');
+              const badge = row.querySelector('.status-badge');
+              if(badge){
+                badge.textContent = data.new_status === 'approved' ? 'Zatwierdzony' : 'Odrzucony';
+                badge.className = 'status-badge status-' + data.new_status;
+              }
+            }
+          }catch(err){
+            console.error(err);
+            alert('Wystąpił błąd podczas przetwarzania żądania.');
+          }
+        });
+      });
     </script>
   </body>
 </html>

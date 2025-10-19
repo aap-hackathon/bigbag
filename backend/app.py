@@ -340,7 +340,7 @@ def resident_dashboard() -> str:
     print(flask_login.current_user)
     if flask_login.current_user.type != "citizen":
         return flask.redirect(flask.url_for("index"))
-    # pagination
+    # pagination and filters
     try:
         page = int(flask.request.args.get("page", "1"))
     except ValueError:
@@ -348,34 +348,45 @@ def resident_dashboard() -> str:
     per_page = 25
     offset = (page - 1) * per_page
 
+    status_filter = flask.request.args.get("status")
+    q = flask.request.args.get("q", "").strip()
+
     cur = db_connection.cursor(dictionary=True)
     try:
+        # build where clauses
+        where_clauses = ["a.id_citizen = %s"]
+        params = [flask_login.current_user.id]
+        if status_filter:
+            where_clauses.append("a.status = %s")
+            params.append(status_filter)
+        if q:
+            where_clauses.append("(e.street LIKE %s OR e.building_number LIKE %s OR e.apartment_number LIKE %s)")
+            likeq = f"%{q}%"
+            params.extend([likeq, likeq, likeq])
+
+        where_sql = " AND ".join(where_clauses)
+
         # total count
-        cur.execute(
-            "SELECT COUNT(*) as cnt FROM application WHERE id_citizen = %s",
-            (flask_login.current_user.id,),
-        )
+        count_sql = f"SELECT COUNT(*) as cnt FROM application a LEFT JOIN estate e ON a.id_estate = e.id_estate WHERE {where_sql}"
+        cur.execute(count_sql, tuple(params))
         row = cur.fetchone()
         total = row["cnt"] if row and "cnt" in row else 0
 
         # paginated fetch
-        cur.execute(
-            """
+        fetch_sql = f"""
             SELECT a.*, e.street, e.building_number, e.apartment_number
             FROM application a
             LEFT JOIN estate e ON a.id_estate = e.id_estate
-            WHERE a.id_citizen = %s
+            WHERE {where_sql}
             ORDER BY a.creation_date DESC
             LIMIT %s OFFSET %s
-            """,
-            (flask_login.current_user.id, per_page, offset),
-        )
+            """
+        fetch_params = tuple(params + [per_page, offset])
+        cur.execute(fetch_sql, fetch_params)
         applications = cur.fetchall()
 
-        # fetch attachments for the listed applications (minimize queries by one IN query)
-        app_ids = (
-            [a["id_application"] for a in applications] if applications else []
-        )
+        # fetch attachments for listed applications
+        app_ids = [a["id_application"] for a in applications] if applications else []
         attachments_map = {}
         if app_ids:
             format_strings = ",".join(["%s"] * len(app_ids))
@@ -385,10 +396,7 @@ def resident_dashboard() -> str:
             )
             atts = cur.fetchall()
             for att in atts:
-                # keep only the first attachment per application for preview
-                attachments_map.setdefault(att["id_application"], []).append(
-                    att
-                )
+                attachments_map.setdefault(att["id_application"], []).append(att)
     finally:
         cur.close()
 
@@ -400,21 +408,9 @@ def resident_dashboard() -> str:
         attachments_map=attachments_map,
         page=page,
         total_pages=total_pages,
+        status_filter=status_filter,
+        q=q,
     )
-
-
-@app.route("/attachment/<int:attachment_id>")
-@flask_login.login_required
-def serve_attachment(attachment_id: int) -> flask.Response:
-    """Serve attachment content from the database.
-
-    Returns the raw file bytes with appropriate Content-Type and a safe
-    Content-Disposition to allow inline display for images and download for others.
-    """
-    cur = db_connection.cursor(dictionary=True)
-    try:
-        # join with application so we can verify ownership
-        cur.execute(
             """
             SELECT att.file_name, att.file_type, att.file_data, app.id_citizen
             FROM attachment att
@@ -495,9 +491,157 @@ def attachment_view(attachment_id: int) -> str:
 @app.route("/panel/urzednik")
 @flask_login.login_required
 def staff_dashboard() -> str:
-    """Renders the panel for staff."""
-    print(flask_login.current_user)
-    return "Panel urzędnika - w budowie"
+    """Renders the panel for staff - list all applications (paginated).
+
+    Only users with type != 'citizen' are allowed (employees).
+    """
+    if flask_login.current_user.type == "citizen":
+        return flask.redirect(flask.url_for("index"))
+
+    try:
+        page = int(flask.request.args.get("page", "1"))
+    except ValueError:
+        page = 1
+    per_page = 25
+    offset = (page - 1) * per_page
+
+    cur = db_connection.cursor(dictionary=True)
+    try:
+        # total count
+        cur.execute("SELECT COUNT(*) as cnt FROM application")
+        row = cur.fetchone()
+        total = row["cnt"] if row and "cnt" in row else 0
+
+        # paginated fetch: include citizen info and estate address
+        cur.execute(
+            """
+            SELECT a.*, e.street, e.building_number, e.apartment_number, c.first_name, c.last_name, c.email
+            FROM application a
+            LEFT JOIN estate e ON a.id_estate = e.id_estate
+            LEFT JOIN citizen c ON a.id_citizen = c.id_citizen
+            ORDER BY a.creation_date DESC
+            LIMIT %s OFFSET %s
+            """,
+            (per_page, offset),
+        )
+        applications = cur.fetchall()
+
+        # fetch attachments for the listed applications
+        app_ids = (
+            [a["id_application"] for a in applications] if applications else []
+        )
+        attachments_map = {}
+        if app_ids:
+            format_strings = ",".join(["%s"] * len(app_ids))
+            cur.execute(
+                f"SELECT id_attachment, id_application, file_name, file_type FROM attachment WHERE id_application IN ({format_strings})",
+                tuple(app_ids),
+            )
+            atts = cur.fetchall()
+            for att in atts:
+                attachments_map.setdefault(att["id_application"], []).append(
+                    att
+                )
+    finally:
+        cur.close()
+
+    total_pages = max(1, (total + per_page - 1) // per_page)
+
+    return flask.render_template(
+        "staff_dashboard.html",
+        applications=applications,
+        attachments_map=attachments_map,
+        page=page,
+        total_pages=total_pages,
+    )
+
+
+@app.route("/application/<int:app_id>/decide", methods=["POST"])
+@flask_login.login_required
+def decide_application(app_id: int):
+    """Allow an employee to approve or decline an application.
+
+    Expects form field 'action' with values 'approve' or 'decline'. Only
+    non-citizen (employee) users can perform this action.
+    """
+    if flask_login.current_user.type == "citizen":
+        return flask.abort(403)
+
+    action = flask.request.form.get("action")
+    if action not in ("approve", "decline"):
+        # invalid action
+        if flask.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return flask.jsonify({"ok": False, "error": "invalid_action"}), 400
+        return flask.redirect(flask.url_for("staff_dashboard"))
+
+    new_status = "approved" if action == "approve" else "declined"
+
+    # check current status to avoid useless transitions
+    cur = db_connection.cursor(dictionary=True)
+    try:
+        cur.execute(
+            "SELECT status FROM application WHERE id_application = %s",
+            (app_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            if (
+                flask.request.headers.get("X-Requested-With")
+                == "XMLHttpRequest"
+            ):
+                return flask.make_response(
+                    flask.jsonify({"ok": False, "error": "not_found"}), 404
+                )
+            return flask.redirect(flask.url_for("staff_dashboard"))
+
+        current_status = row["status"]
+        if current_status == new_status:
+            # no-op
+            if (
+                flask.request.headers.get("X-Requested-With")
+                == "XMLHttpRequest"
+            ):
+                return flask.make_response(
+                    flask.jsonify(
+                        {
+                            "ok": False,
+                            "error": "no_change",
+                            "status": current_status,
+                        }
+                    ),
+                    409,
+                )
+            return flask.redirect(flask.url_for("staff_dashboard"))
+    finally:
+        cur.close()
+
+    # perform update
+    cur2 = db_connection.cursor()
+    try:
+        cur2.execute(
+            "UPDATE application SET status = %s WHERE id_application = %s",
+            (new_status, app_id),
+        )
+        db_connection.commit()
+    except mysql.connector.Error as err:
+        print("Error updating application status:", err)
+        if flask.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return flask.make_response(
+                flask.jsonify({"ok": False, "error": "db_error"}), 500
+            )
+    finally:
+        cur2.close()
+
+    # AJAX clients receive JSON; normal form posts are redirected back
+    if flask.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return flask.jsonify({"ok": True, "new_status": new_status})
+
+    page = flask.request.form.get("page") or flask.request.args.get("page")
+    if page:
+        return flask.redirect(
+            flask.url_for("staff_dashboard") + f"?page={page}"
+        )
+    return flask.redirect(flask.url_for("staff_dashboard"))
 
 
 if __name__ == "__main__":
