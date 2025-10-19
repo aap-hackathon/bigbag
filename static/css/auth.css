@@ -19,9 +19,14 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  gap: 0.75rem;
+  gap: 0;
   width: 100%;
-  margin: 2rem auto;
+}
+
+.auth-card-narrow {
+  max-width: min(700px, 100%);
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .auth-card h1 {
