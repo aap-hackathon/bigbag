@@ -48,7 +48,7 @@
                 <option value="declined" {% if status_filter == 'declined' %}selected{% endif %}>Odrzucony</option>
               </select>
               <label for="filter_q">Szukaj</label>
-              <input id="filter_q" name="q" type="search" placeholder="ulica, numer, ..." value="{{ q or '' }}" />
+              <input id="filter_q" name="q" type="search" placeholder="imię, nazwisko, ulica, email, rok (YYYY) lub data (YYYY-MM-DD)" value="{{ q or '' }}" />
               <button class="btn btn-primary" type="submit">Filtruj</button>
             </form>
             {% if applications and applications|length > 0 %}
