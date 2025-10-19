@@ -350,7 +350,16 @@ def application_form() -> str:
             bag_arrival = form.get("bag_arrival_date") or None
             bag_depart = form.get("bag_depart_date") or None
             notes = form.get("notes") or None
-            bag_count = 1
+            # parse bag_count from form, enforce integer >= 1
+            bag_count_raw = form.get("bag_count")
+            try:
+                bag_count = (
+                    int(bag_count_raw) if bag_count_raw is not None else 1
+                )
+            except Exception:
+                bag_count = 1
+            if bag_count < 1:
+                bag_count = 1
             cur.execute(
                 "INSERT INTO application (id_estate, id_citizen, status, bag_count, bag_arrival_date, bag_depart_date, notes) VALUES (%s, %s, %s, %s, %s, %s, %s)",
                 (

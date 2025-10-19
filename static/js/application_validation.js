@@ -164,6 +164,20 @@ function validateForm(form) {
   }
 
   // bag_count removed (not required)
+  // validate bag_count (required, integer >=1)
+  const bagCount = qs('[name="bag_count"]', form);
+  if (bagCount) {
+    // ensure integer and >= 1
+    clearError(bagCount);
+    const v = bagCount.value === '' ? null : Number(bagCount.value);
+    if (v === null || Number.isNaN(v)) {
+      setError(bagCount, 'Wpisz liczbę worków');
+      ok = false;
+    } else if (!Number.isInteger(v) || v < 1) {
+      setError(bagCount, 'Liczba worków musi być liczbą całkowitą >= 1');
+      ok = false;
+    }
+  }
 
   // dates
   const arrival = qs('[name="bag_arrival_date"]', form);
