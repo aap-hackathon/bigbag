@@ -9,7 +9,75 @@ app: flask.Flask = flask.Flask(
 )
 app.secret_key = "wielkiedildo33cm"
 
-flask_login_manager: flask_login.LoginManager = flask_login.LoginManager()
+def compute_free_paid(applications):
+    """Compute free_bags and paid_bags for each application in the list.
+
+    Rule: one free bag per estate per calendar year. For each application we
+    count prior bags in the same estate and year (strictly earlier by date or
+    by id if same timestamp) and allocate up to 1 free bag in total per estate
+    per year; remaining bags are paid.
+    This mutates the dicts in-place (sets 'free_bags' and 'paid_bags').
+    """
+    if not applications:
+        return
+
+    # nothing to do here; we'll mutate or replace elements in-place
+    sum_cur = db_connection.cursor(dictionary=True)
+    try:
+        # iterate by index so we can replace non-dict rows with dicts
+        for idx, orig in enumerate(applications):
+            # work on a mutable dict copy or the original dict
+            if isinstance(orig, dict):
+                a = orig
+            else:
+                try:
+                    a = dict(orig)
+                except Exception:
+                    # fallback to a minimal dict view
+                    a = {
+                        "id_estate": getattr(orig, "id_estate", None),
+                        "creation_date": getattr(orig, "creation_date", None),
+                        "id_application": getattr(orig, "id_application", None),
+                        "bag_count": getattr(orig, "bag_count", 0),
+                    }
+
+            try:
+                estate_id = a.get("id_estate")
+                creation = a.get("creation_date")
+                app_id = a.get("id_application")
+                bag_count = int(a.get("bag_count") or 0)
+            except Exception:
+                estate_id = None
+                creation = None
+                app_id = None
+                bag_count = 0
+
+            if not estate_id or not creation:
+                a["free_bags"] = 0
+                a["paid_bags"] = bag_count
+            else:
+                sum_sql = (
+                    "SELECT COALESCE(SUM(bag_count),0) as prior_bags "
+                    "FROM application "
+                    "WHERE id_estate = %s AND YEAR(creation_date) = YEAR(%s) "
+                    "AND (creation_date < %s OR (creation_date = %s AND id_application < %s))"
+                )
+                sum_cur.execute(sum_sql, (estate_id, creation, creation, creation, app_id))
+                srow = sum_cur.fetchone()
+                prior_bags = srow["prior_bags"] if srow and "prior_bags" in srow else 0
+
+                free_remaining = max(0, 1 - int(prior_bags or 0))
+                free_for_this = min(free_remaining, bag_count)
+                paid_for_this = bag_count - free_for_this
+
+                a["free_bags"] = free_for_this
+                a["paid_bags"] = paid_for_this
+
+            # ensure the caller's list contains the mutated dict so callers see values
+            if not isinstance(orig, dict):
+                applications[idx] = a
+    finally:
+        sum_cur.close()
 
 
 class User(flask_login.UserMixin):
@@ -688,6 +756,9 @@ def resident_dashboard() -> str:
     finally:
         cur.close()
 
+    # compute free/paid bags for resident view
+    compute_free_paid(applications)
+
     total_pages = max(1, (total + per_page - 1) // per_page)
 
     return flask.render_template(
@@ -865,6 +936,17 @@ def staff_dashboard() -> str:
 
     total_pages = max(1, (total + per_page - 1) // per_page)
 
+    # compute free/paid bags for staff view and ensure keys exist
+    compute_free_paid(applications)
+    if applications:
+        try:
+            for a in applications:
+                if isinstance(a, dict):
+                    a.setdefault("free_bags", 0)
+                    a.setdefault("paid_bags", 0)
+        except Exception:
+            pass
+
     return flask.render_template(
         "staff_dashboard.html",
         applications=applications,
@@ -874,6 +956,60 @@ def staff_dashboard() -> str:
         status_filter=status_filter,
         q=q,
     )
+
+
+@app.route("/debug/staff_applications")
+@flask_login.login_required
+def debug_staff_applications():
+    """Developer helper: return JSON list of staff applications with computed free/paid bags.
+
+    Only employees (non-citizen) can access this. Designed for quick inspection during
+    debugging; remove or protect in production.
+    """
+    if flask_login.current_user.type == "citizen":
+        return flask.abort(403)
+
+    cur = db_connection.cursor(dictionary=True)
+    try:
+        # fetch recent applications (limit to 100 for safety)
+        cur.execute(
+            """
+            SELECT a.*, e.street, e.building_number, e.apartment_number, c.first_name, c.last_name, c.email
+            FROM application a
+            LEFT JOIN estate e ON a.id_estate = e.id_estate
+            LEFT JOIN citizen c ON a.id_citizen = c.id_citizen
+            ORDER BY a.creation_date DESC
+            LIMIT 100
+            """
+        )
+        apps = cur.fetchall()
+        # ensure list and compute free/paid
+        compute_free_paid(apps)
+        # normalize and pick a few fields for clarity
+        out = []
+        for a in apps:
+            try:
+                row = dict(a)
+            except Exception:
+                row = a
+            out.append(
+                {
+                    "id_application": row.get("id_application"),
+                    "id_estate": row.get("id_estate"),
+                    "bag_count": int(row.get("bag_count") or 0),
+                    "free_bags": int(row.get("free_bags") or 0),
+                    "paid_bags": int(row.get("paid_bags") or 0),
+                    "creation_date": str(row.get("creation_date")),
+                    "street": row.get("street"),
+                    "building_number": row.get("building_number"),
+                    "apartment_number": row.get("apartment_number"),
+                    "first_name": row.get("first_name"),
+                    "last_name": row.get("last_name"),
+                }
+            )
+        return flask.jsonify(out)
+    finally:
+        cur.close()
 
 
 @app.route("/application/<int:app_id>/decide", methods=["POST"])
@@ -966,6 +1102,7 @@ def decide_application(app_id: int):
 
 if __name__ == "__main__":
     db_connection = get_db_connection()
+    flask_login_manager = flask_login.LoginManager()
     flask_login_manager.init_app(app)
     flask_login_manager.login_view = "login"
     flask_login_manager.user_loader(load_user)
