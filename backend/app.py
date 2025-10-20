@@ -17,28 +17,54 @@ def compute_free_paid(applications):
     if not applications:
         print("compute_free_paid: no applications provided")
         return
+    # Ensure we modify the original list in-place so callers observe the changes.
+    # Convert non-dict rows to dicts but replace the element in the original list.
+    for i, item in enumerate(applications):
+        if not isinstance(item, dict):
+            try:
+                applications[i] = dict(item)
+            except Exception:
+                # leave the original item if conversion fails
+                pass
 
-    # nothing to do here; we'll mutate or replace elements in-place
-    if applications:
-        try:
-            applications = [dict(a) for a in applications]
-        except Exception:
-            pass
-
+    try:
         sum_cur = db_connection.cursor(dictionary=True)
-        try:
-            for a in applications:
-                estate_id = a.get("id_estate")
-                creation = a.get("creation_date")
-                app_id = a.get("id_application")
-                bag_count = int(a.get("bag_count") or 0)
+    except Exception:
+        # DB not available; ensure defaults exist and exit
+        for a in applications:
+            try:
+                if isinstance(a, dict):
+                    a.setdefault("free_bags", 0)
+                    a.setdefault("paid_bags", int(a.get("bag_count") or 0))
+            except Exception:
+                pass
+        return
 
-                sum_sql = (
-                    "SELECT COALESCE(SUM(bag_count),0) as prior_bags "
-                    "FROM application "
-                    "WHERE id_estate = %s AND YEAR(creation_date) = YEAR(%s) "
-                    "AND (creation_date < %s OR (creation_date = %s AND id_application < %s))"
-                )
+    try:
+        for a in applications:
+            # operate on the dict stored in the list (may already be a dict)
+            if not isinstance(a, dict):
+                # if conversion didn't happen above, try to make a minimal dict
+                try:
+                    a = dict(a)
+                except Exception:
+                    continue
+
+            estate_id = a.get("id_estate")
+            creation = a.get("creation_date")
+            app_id = a.get("id_application")
+            try:
+                bag_count = int(a.get("bag_count") or 0)
+            except Exception:
+                bag_count = 0
+
+            sum_sql = (
+                "SELECT COALESCE(SUM(bag_count),0) as prior_bags "
+                "FROM application "
+                "WHERE id_estate = %s AND YEAR(creation_date) = YEAR(%s) "
+                "AND (creation_date < %s OR (creation_date = %s AND id_application < %s))"
+            )
+            try:
                 sum_cur.execute(
                     sum_sql,
                     (estate_id, creation, creation, creation, app_id),
@@ -47,16 +73,30 @@ def compute_free_paid(applications):
                 prior_bags = (
                     srow["prior_bags"] if srow and "prior_bags" in srow else 0
                 )
+            except Exception:
+                prior_bags = 0
 
-                free_remaining = max(0, 1 - int(prior_bags or 0))
-                free_for_this = min(free_remaining, bag_count)
-                paid_for_this = bag_count - free_for_this
+            free_remaining = max(0, 1 - int(prior_bags or 0))
+            free_for_this = min(free_remaining, bag_count)
+            paid_for_this = bag_count - free_for_this
 
+            # write back into the list element
+            try:
                 a["free_bags"] = free_for_this
                 a["paid_bags"] = paid_for_this
-                print(free_for_this, paid_for_this)
-        finally:
-            sum_cur.close()
+            except Exception:
+                # if a isn't mutable, try to replace the whole element
+                try:
+                    idx = applications.index(a)
+                    applications[idx] = {
+                        **(a if isinstance(a, dict) else {}),
+                        "free_bags": free_for_this,
+                        "paid_bags": paid_for_this,
+                    }
+                except Exception:
+                    pass
+    finally:
+        sum_cur.close()
 
 
 class User(flask_login.UserMixin):
@@ -281,8 +321,14 @@ def _write_sector_application(row: dict, attachments: list):
         try:
             tree = ET.parse(path)
             root = tree.getroot()
-        except Exception:
-            # corrupt file? start fresh
+        except Exception as e:
+            # corrupt file? start fresh but try to back up the corrupt file
+            try:
+                bak = path + ".corrupt"
+                os.replace(path, bak)
+                print(f"Backed up corrupt XML to {bak}")
+            except Exception:
+                pass
             root = ET.Element("applications")
             tree = ET.ElementTree(root)
     else:
@@ -299,21 +345,65 @@ def _write_sector_application(row: dict, attachments: list):
 
     new_el = _application_element_from_row(row, attachments)
 
+    try:
+        # debug: list existing application ids
+        existing_ids = [el.get("id") for el in root.findall("application")]
+        try:
+            app_id = str(row.get("id_application"))
+        except Exception:
+            app_id = ""
+        print(f"_write_sector_application: sector={sector_id} path={path} existing_count={len(existing_ids)} ids={existing_ids} writing_app_id={app_id}")
+    except Exception:
+        pass
+
     if existing is not None:
         # replace existing element
         root.remove(existing)
     root.append(new_el)
 
+    try:
+        # pretty-print the tree for easier inspection
+        try:
+            ET.indent(tree, space="  ")
+        except Exception:
+            # indent may not be available in older Python, ignore
+            pass
+        # debug: show new count
+        new_ids = [el.get("id") for el in root.findall("application")]
+        print(f"_write_sector_application: after append new_count={len(new_ids)} ids={new_ids}")
+    except Exception:
+        pass
+
+    # Debug/logging: show what we're doing
+    try:
+        print(
+            f"_write_sector_application: writing application id={app_id} to {path} (replaced_existing={existing is not None})"
+        )
+    except Exception:
+        pass
+
     # write atomically
     tmp = path + ".tmp"
     try:
         tree.write(tmp, encoding="utf-8", xml_declaration=True)
-        os.replace(tmp, path)
-    except Exception:
+        # On Windows replace can fail if file locked; try to replace and fall back to write
+        try:
+            os.replace(tmp, path)
+        except Exception as e:
+            print(f"_write_sector_application: os.replace failed: {e}; falling back to overwrite")
+            try:
+                # fallback: overwrite target
+                with open(tmp, "rb") as rf, open(path, "wb") as wf:
+                    wf.write(rf.read())
+                os.remove(tmp)
+            except Exception as e2:
+                print(f"_write_sector_application: fallback write failed: {e2}")
+    except Exception as e:
+        print(f"_write_sector_application: write tmp failed: {e}")
         try:
             tree.write(path, encoding="utf-8", xml_declaration=True)
-        except Exception:
-            pass
+        except Exception as e2:
+            print(f"_write_sector_application: final write failed: {e2}")
 
 
 def _mark_application_revoked(app_id: int):
