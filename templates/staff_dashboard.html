@@ -101,7 +101,7 @@
                     <td class="bag-count">
                       {% set total = a.bag_count or 0 %}
                       {% set paid = (a.paid_bags if (a.paid_bags is defined) else 0) %}
-                      {{ total }}{% if paid and paid > 0 %} <span class="paid-badge">{{ paid }} płatne</span>{% endif %}
+                      {{ total }}{% if paid and paid > 0 %} <span class="paid-badge">w tym {{ paid }} płatne</span>{% endif %}
                     </td>
                     <td>{{ a.bag_depart_date or '-' }}</td>
                     <td>{{ a.creation_date }}</td>
