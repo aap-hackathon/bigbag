@@ -172,7 +172,7 @@ def load_user(user_id):
 def get_db_connection() -> mysql.connector.connection.MySQLConnection:
     """Establishes and returns a connection to the MySQL database."""
     connection = mysql.connector.connect(
-        host="localhost", user="root", password="", database="bigbag"
+        host="localhost", port=3306, user="root", password="", database="bigbag"
     )
     return connection
 
