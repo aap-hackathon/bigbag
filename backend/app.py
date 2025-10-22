@@ -5,11 +5,44 @@ import mysql.connector
 import os
 import xml.etree.ElementTree as ET
 from datetime import datetime
+from flask import g
 
 app: flask.Flask = flask.Flask(
     __name__, template_folder="../templates", static_folder="../static"
 )
 app.secret_key = "wielkiedildo33cm"
+
+
+def get_db():
+    if "db" not in g:
+        g.db = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password="",
+            database="bigbag",
+            autocommit=True,
+        )
+        print("Established new DB connection")
+    else:
+        try:
+            g.db.ping(reconnect=True, attempts=3, delay=2)
+        except mysql.connector.Error:
+            g.db = mysql.connector.connect(
+                host="localhost",
+                user="root",
+                password="",
+                database="mydb",
+                autocommit=True,
+            )
+            print("Re-established DB connection after ping failure")
+    return g.db
+
+
+@app.teardown_appcontext
+def close_db(exception):
+    db = g.pop("db", None)
+    if db is not None:
+        db.close()
 
 
 def compute_free_paid(applications):
@@ -28,7 +61,8 @@ def compute_free_paid(applications):
                 pass
 
     try:
-        sum_cur = db_connection.cursor(dictionary=True)
+        db = get_db()
+        sum_cur = db.cursor(dictionary=True)
     except Exception:
         # DB not available; ensure defaults exist and exit
         for a in applications:
@@ -110,7 +144,8 @@ class User(flask_login.UserMixin):
 
     @staticmethod
     def get(user_id: str, type: str) -> "User | None":
-        cursor = db_connection.cursor(dictionary=True)
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
         if type == "citizen":
             cursor.execute(
                 "SELECT id_citizen FROM citizen WHERE id_citizen = %s",
@@ -132,8 +167,9 @@ class User(flask_login.UserMixin):
 
     def _get_first_name(self) -> str:
         """Return the first name of the user."""
-        cursor = db_connection.cursor(dictionary=True)
-        print(self.type)
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+        print(f"Fetching first name for user {self.id} of type {self.type}")
         if self.type == "citizen":
             cursor.execute(
                 "SELECT first_name FROM citizen WHERE id_citizen = %s",
@@ -167,14 +203,6 @@ def load_user(user_id):
     if not user_type:
         return None
     return User.get(user_id, user_type)
-
-
-def get_db_connection() -> mysql.connector.connection.MySQLConnection:
-    """Establishes and returns a connection to the MySQL database."""
-    connection = mysql.connector.connect(
-        host="localhost", port=3306, user="root", password="", database="bigbag"
-    )
-    return connection
 
 
 ### XML export helpers (per-sector files)
@@ -242,7 +270,8 @@ def _application_element_from_row(row: dict, attachments: list) -> ET.Element:
     # application details
     sub("bag_count", row.get("bag_count") or 0)
     try:
-        sum_cur = db_connection.cursor(dictionary=True)
+        db = get_db()
+        sum_cur = db.cursor(dictionary=True)
         try:
             estate_id = row.get("id_estate")
             creation = row.get("creation_date")
@@ -352,7 +381,9 @@ def _write_sector_application(row: dict, attachments: list):
             app_id = str(row.get("id_application"))
         except Exception:
             app_id = ""
-        print(f"_write_sector_application: sector={sector_id} path={path} existing_count={len(existing_ids)} ids={existing_ids} writing_app_id={app_id}")
+        print(
+            f"_write_sector_application: sector={sector_id} path={path} existing_count={len(existing_ids)} ids={existing_ids} writing_app_id={app_id}"
+        )
     except Exception:
         pass
 
@@ -370,7 +401,9 @@ def _write_sector_application(row: dict, attachments: list):
             pass
         # debug: show new count
         new_ids = [el.get("id") for el in root.findall("application")]
-        print(f"_write_sector_application: after append new_count={len(new_ids)} ids={new_ids}")
+        print(
+            f"_write_sector_application: after append new_count={len(new_ids)} ids={new_ids}"
+        )
     except Exception:
         pass
 
@@ -390,14 +423,18 @@ def _write_sector_application(row: dict, attachments: list):
         try:
             os.replace(tmp, path)
         except Exception as e:
-            print(f"_write_sector_application: os.replace failed: {e}; falling back to overwrite")
+            print(
+                f"_write_sector_application: os.replace failed: {e}; falling back to overwrite"
+            )
             try:
                 # fallback: overwrite target
                 with open(tmp, "rb") as rf, open(path, "wb") as wf:
                     wf.write(rf.read())
                 os.remove(tmp)
             except Exception as e2:
-                print(f"_write_sector_application: fallback write failed: {e2}")
+                print(
+                    f"_write_sector_application: fallback write failed: {e2}"
+                )
     except Exception as e:
         print(f"_write_sector_application: write tmp failed: {e}")
         try:
@@ -457,7 +494,8 @@ def login() -> flask.Response | str:
         password: str = flask.request.form.get("password", "")
 
         # check if e-mail and password are correct
-        cursor = db_connection.cursor(dictionary=True)
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
         cursor.execute(
             "SELECT * FROM citizen WHERE email = %s AND password = %s",
             (email, password),
@@ -487,7 +525,8 @@ def login_staff() -> str:
         password: str = flask.request.form.get("password", "")
 
         # check if e-mail and password are correct
-        cursor = db_connection.cursor(dictionary=True)
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
         cursor.execute(
             "SELECT * FROM employee WHERE email = %s AND password = %s",
             (email, password),
@@ -531,7 +570,8 @@ def signup() -> str:
         password: str = flask.request.form.get("password", "")
 
         print("WIELKIE DILDO")
-        cursor = db_connection.cursor()
+        db = get_db()
+        cursor = db.cursor()
         try:
             cursor.execute(
                 """INSERT INTO citizen (pesel, first_name, last_name, phone_number, birth_date, reg_address, nip, email, password)
@@ -555,7 +595,7 @@ def signup() -> str:
                 "signup.html",
                 error="Konto z podanym e-mailem lub PESEL już istnieje.",
             )
-        db_connection.commit()
+        db.commit()
         new_user_id = cursor.lastrowid
         cursor.close()
 
@@ -571,7 +611,8 @@ def signup() -> str:
 @flask_login.login_required
 def application_form() -> str:
     """Renders the wniosek page."""
-    cursor = db_connection.cursor(dictionary=True)
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
 
     if flask.request.method == "POST":
         # handle form submission: insert estate if new, then application, then attachment
@@ -597,7 +638,8 @@ def application_form() -> str:
                 except Exception:
                     id_sector = 1
 
-                cur = db_connection.cursor()
+                db = get_db()
+                cur = db.cursor()
                 cur.execute(
                     "INSERT INTO estate (id_citizen, id_sector, estate_type, postal_code, city, street, building_number, apartment_number) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
                     (
@@ -611,7 +653,7 @@ def application_form() -> str:
                         apartment_num,
                     ),
                 )
-                db_connection.commit()
+                db.commit()
                 id_estate = cur.lastrowid
                 cur.close()
             except mysql.connector.Error as err:
@@ -624,7 +666,8 @@ def application_form() -> str:
 
         # now insert application
         try:
-            cur = db_connection.cursor()
+            db = get_db()
+            cur = db.cursor()
             bag_arrival = form.get("bag_arrival_date") or None
             bag_depart = form.get("bag_depart_date") or None
             notes = form.get("notes") or None
@@ -650,7 +693,7 @@ def application_form() -> str:
                     notes,
                 ),
             )
-            db_connection.commit()
+            db.commit()
             id_application = cur.lastrowid
             cur.close()
         except mysql.connector.Error as err:
@@ -667,7 +710,8 @@ def application_form() -> str:
             if f and f.filename:
                 data = f.read()
                 try:
-                    cur = db_connection.cursor()
+                    db = get_db()
+                    cur = db.cursor()
                     cur.execute(
                         "INSERT INTO attachment (id_application, file_name, file_type, file_data) VALUES (%s, %s, %s, %s)",
                         (
@@ -677,7 +721,7 @@ def application_form() -> str:
                             data,
                         ),
                     )
-                    db_connection.commit()
+                    db.commit()
                     cur.close()
                 except mysql.connector.Error as err:
                     print("Error inserting attachment:", err)
@@ -699,7 +743,6 @@ def application_form() -> str:
 @flask_login.login_required
 def resident_dashboard() -> str:
     """Renders the panel for residents."""
-    print(flask_login.current_user)
     if flask_login.current_user.type != "citizen":
         return flask.redirect(flask.url_for("index"))
     # pagination and filters
@@ -713,7 +756,8 @@ def resident_dashboard() -> str:
     status_filter = flask.request.args.get("status")
     q = flask.request.args.get("q", "").strip()
 
-    cur = db_connection.cursor(dictionary=True)
+    db = get_db()
+    cur = db.cursor(dictionary=True)
     try:
         # build where clauses
         where_clauses = ["a.id_citizen = %s"]
@@ -757,7 +801,8 @@ def resident_dashboard() -> str:
             except Exception:
                 pass
 
-            sum_cur = db_connection.cursor(dictionary=True)
+            db = get_db()
+            sum_cur = db.cursor(dictionary=True)
             try:
                 for a in applications:
                     estate_id = a.get("id_estate")
@@ -788,7 +833,6 @@ def resident_dashboard() -> str:
 
                     a["free_bags"] = free_for_this
                     a["paid_bags"] = paid_for_this
-                    print(free_for_this, paid_for_this)
             finally:
                 sum_cur.close()
 
@@ -801,7 +845,8 @@ def resident_dashboard() -> str:
 
         # compute free/paid bags for staff view (one free bag per estate per calendar year)
         if applications:
-            sum_cur = db_connection.cursor(dictionary=True)
+            db = get_db()
+            sum_cur = db.cursor(dictionary=True)
             try:
                 for a in applications:
                     estate_id = a.get("id_estate")
@@ -845,7 +890,8 @@ def resident_dashboard() -> str:
 
         # Compute paid/free bags per application (one free bag per estate per calendar year)
         if applications:
-            sum_cur = db_connection.cursor(dictionary=True)
+            db = get_db()
+            sum_cur = db.cursor(dictionary=True)
             try:
                 for a in applications:
                     estate_id = (
@@ -905,7 +951,8 @@ def resident_dashboard() -> str:
 
         # Compute paid/free bags per application (one free bag per estate per calendar year)
         if applications:
-            sum_cur = db_connection.cursor(dictionary=True)
+            db = get_db()
+            sum_cur = db.cursor(dictionary=True)
             try:
                 for a in applications:
                     try:
@@ -948,7 +995,8 @@ def resident_dashboard() -> str:
 
         # Compute paid/free bags per application (one free bag per estate per calendar year)
         if applications:
-            sum_cur = db_connection.cursor(dictionary=True)
+            db = get_db()
+            sum_cur = db.cursor(dictionary=True)
             try:
                 for a in applications:
                     try:
@@ -991,7 +1039,8 @@ def resident_dashboard() -> str:
 
         # Compute paid/free bags per application (one free bag per estate per calendar year)
         if applications:
-            sum_cur = db_connection.cursor(dictionary=True)
+            db = get_db()
+            sum_cur = db.cursor(dictionary=True)
             try:
                 for a in applications:
                     try:
@@ -1073,7 +1122,8 @@ def resident_dashboard() -> str:
 @flask_login.login_required
 def serve_attachment(attachment_id: int):
     """Return raw attachment bytes with authorization checks."""
-    cur = db_connection.cursor(dictionary=True)
+    db = get_db()
+    cur = db.cursor(dictionary=True)
     try:
         cur.execute(
             """
@@ -1123,7 +1173,8 @@ def attachment_view(attachment_id: int) -> str:
     This endpoint only returns metadata and a small HTML page; the actual bytes
     are served by `serve_attachment` (which enforces authorization).
     """
-    cur = db_connection.cursor(dictionary=True)
+    db = get_db()
+    cur = db.cursor(dictionary=True)
     try:
         cur.execute(
             """
@@ -1161,7 +1212,8 @@ def citizen_info(citizen_id: int):
     if flask_login.current_user.type == "citizen":
         return flask.abort(403)
 
-    cur = db_connection.cursor(dictionary=True)
+    db = get_db()
+    cur = db.cursor(dictionary=True)
     try:
         # select all citizen columns except password
         cur.execute(
@@ -1212,7 +1264,8 @@ def staff_dashboard() -> str:
     status_filter = flask.request.args.get("status")
     q = flask.request.args.get("q", "").strip()
 
-    cur = db_connection.cursor(dictionary=True)
+    db = get_db()
+    cur = db.cursor(dictionary=True)
     try:
         where_clauses = []
         params = []
@@ -1304,7 +1357,8 @@ def debug_staff_applications():
     if flask_login.current_user.type == "citizen":
         return flask.abort(403)
 
-    cur = db_connection.cursor(dictionary=True)
+    db = get_db()
+    cur = db.cursor(dictionary=True)
     try:
         # fetch recent applications (limit to 100 for safety)
         cur.execute(
@@ -1368,7 +1422,8 @@ def decide_application(app_id: int):
     new_status = "approved" if action == "approve" else "declined"
 
     # check current status to avoid useless transitions
-    cur = db_connection.cursor(dictionary=True)
+    db = get_db()
+    cur = db.cursor(dictionary=True)
     try:
         cur.execute(
             "SELECT status FROM application WHERE id_application = %s",
@@ -1407,16 +1462,18 @@ def decide_application(app_id: int):
         cur.close()
 
     # perform update
-    cur2 = db_connection.cursor()
+    db = get_db()
+    cur2 = db.cursor()
     try:
         cur2.execute(
             "UPDATE application SET status = %s WHERE id_application = %s",
             (new_status, app_id),
         )
-        db_connection.commit()
+        db.commit()
         # after successful update, export to per-sector XML or mark revoked
         try:
-            cur3 = db_connection.cursor(dictionary=True)
+            db = get_db()
+            cur3 = db.cursor(dictionary=True)
             try:
                 cur3.execute(
                     "SELECT a.*, e.id_sector, e.street, e.building_number, e.apartment_number, c.* FROM application a LEFT JOIN estate e ON a.id_estate = e.id_estate LEFT JOIN citizen c ON a.id_citizen = c.id_citizen WHERE a.id_application = %s",
@@ -1474,7 +1531,8 @@ def application_print(app_id: int):
     Employees may print any application. Citizens may print only their
     own application (match on id_citizen).
     """
-    cur = db_connection.cursor(dictionary=True)
+    db = get_db()
+    cur = db.cursor(dictionary=True)
     try:
         cur.execute(
             "SELECT a.*, e.street, e.building_number, e.apartment_number, c.* FROM application a LEFT JOIN estate e ON a.id_estate = e.id_estate LEFT JOIN citizen c ON a.id_citizen = c.id_citizen WHERE a.id_application = %s",
@@ -1508,7 +1566,6 @@ def application_print(app_id: int):
 
 
 if __name__ == "__main__":
-    db_connection = get_db_connection()
     flask_login_manager = flask_login.LoginManager()
     flask_login_manager.init_app(app)
     flask_login_manager.login_view = "login"
